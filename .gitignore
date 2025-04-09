@@ -65,9 +65,6 @@ coverage.json
 # forge-coverage lcov.info 文件
 lcov.info
 
-# xdeployer 输出目录
-deployments
-
 # Foundry 输出目录
 forge-artifacts
 

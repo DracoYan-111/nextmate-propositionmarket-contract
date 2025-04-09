@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.29;
 
-import {Greeter} from "../src/Greeter.sol";
+import {PredictionMarketFactory} from "../../src/prediction_market/PredictionMarketFactory.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract GreeterTest is Test {
-    Greeter public greeter;
+    PredictionMarketFactory public greeter;
 
     function setUp() public {
-        greeter = new Greeter("Hello, Hardhat!");
+        greeter = new PredictionMarketFactory("Hello, Hardhat!");
     }
 
     function testCreateGreeter() public {

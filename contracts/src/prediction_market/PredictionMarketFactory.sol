@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.29;
 
-contract Greeter {
+contract PredictionMarketFactory {
     string private greeting;
 
     constructor(string memory greeting_) {

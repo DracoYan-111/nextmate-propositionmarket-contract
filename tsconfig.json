@@ -22,7 +22,6 @@
   ],
   "files": [
     "hardhat.config.ts",
-    "deploy-args.ts",
     "eslint.config.js",
     "arguments.js",
     ".solcover.js"
