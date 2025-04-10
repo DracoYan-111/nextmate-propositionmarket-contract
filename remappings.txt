@@ -1,4 +1,5 @@
 hardhat/=node_modules/hardhat/
 xdeployer/=node_modules/xdeployer/
+solady/=contracts/lib/solady/
 forge-std/=contracts/lib/forge-std/src/
 @openzeppelin/=node_modules/@openzeppelin/

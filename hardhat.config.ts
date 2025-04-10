@@ -72,7 +72,7 @@ const config: HardhatUserConfig = {
     // https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/cancun.md
     // 仅对支持操作码 `PUSH0` 的 EVM 网络使用 Solidity 默认版本 `>=0.8.20`
     // 否则，使用版本 `<=0.8.19`
-    version: "0.8.29",
+    version: "0.8.23",
     settings: {
       optimizer: {
         enabled: true,
@@ -106,7 +106,7 @@ const config: HardhatUserConfig = {
     deployer: {
       metis: account,
       hardhat: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-      localhost: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
+      localhost: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
       goerli: account,
       ethMain: account,
       bscTestnet: account,

@@ -1,4 +1,4 @@
-import { data } from "../../args/prediction_market/PMF-args";
+import { data } from "../../args/proposition-market/pmf-args";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { keccak256, stringToBytes } from "viem";
@@ -34,22 +34,21 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     from: deployer,
     log: true,
     autoMine: true,
-    args: data,
-    // proxy: {
-    //   checkProxyAdmin: false,
-    //   proxyContract: "ERC1967Proxy",
-    //   proxyArgs: ["{implementation}", "{data}"],
-    //   upgradeFunction: {
-    //     methodName: "upgradeToAndCall",
-    //     upgradeArgs: ["{implementation}", "{data}"],
-    //   },
-    //   execute: {
-    //     init: {
-    //       methodName: "initialize",
-    //       args: data,
-    //     },
-    //   },
-    // },
+    proxy: {
+      checkProxyAdmin: false,
+      proxyContract: "ERC1967Proxy",
+      proxyArgs: ["{implementation}", "{data}"],
+      upgradeFunction: {
+        methodName: "upgradeToAndCall",
+        upgradeArgs: ["{implementation}", "{data}"],
+      },
+      execute: {
+        init: {
+          methodName: "initialize",
+          args: data,
+        },
+      },
+    },
     deterministicDeployment,
   });
 
@@ -81,7 +80,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   //   }
 };
 
-func.id = "deploy_PredictionMarketFactory";
-func.tags = ["PredictionMarketFactory"];
+func.id = "deploy_PropositionMarketFactory";
+func.tags = ["PropositionMarketFactory"];
 
 export default func;

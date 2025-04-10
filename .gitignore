@@ -81,6 +81,7 @@ artifacts-zk
 deployments-zk
 
 # 杂项文件
+abis
 bin
 out
 .DS_Store
