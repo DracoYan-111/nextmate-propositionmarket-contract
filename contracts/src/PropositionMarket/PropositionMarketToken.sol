@@ -6,6 +6,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {ERC20Upgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {ERC20PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
 
+/// @custom:security-contact draco@nextmate.ai
 contract PropositionMarketToken is Initializable, ERC20Upgradeable, ERC20PausableUpgradeable, OwnableUpgradeable {
     function initialize(address initialOwner, string memory name, string memory symbol) external initializer {
         __ERC20_init(name, symbol);

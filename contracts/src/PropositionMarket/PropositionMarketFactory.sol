@@ -8,9 +8,10 @@ import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {PausableUpgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {IPropositionMarketToken, IPropositionMarketFactory} from "./interfaces/IPropositionMarketFactory.sol";
 
-interface IPropositionMarketToken {
-    function initialize(address initialOwner, string memory name, string memory symbol) external;
+struct MarketSettings {
+    address[] tokenList;
 }
 
 struct TokenSettings {
@@ -24,10 +25,14 @@ struct FactorySettings {
     uint48 platformFee;
 }
 
-error InvalidInput(string[]);
-
 /// @custom:security-contact draco@nextmate.ai
-contract PropositionMarketFactory is Initializable, PausableUpgradeable, AccessControlUpgradeable, UUPSUpgradeable {
+contract PropositionMarketFactory is
+    Initializable,
+    PausableUpgradeable,
+    AccessControlUpgradeable,
+    UUPSUpgradeable,
+    IPropositionMarketFactory
+{
     using LibClone for *;
     using SafeTransferLib for *;
 
@@ -99,12 +104,21 @@ contract PropositionMarketFactory is Initializable, PausableUpgradeable, AccessC
         return $.tokenImplementation.predictDeterministicAddress(predictInitCodeHash(args), address(this));
     }
 
+    function predictDeterministicAddress(
+        MarketSettings memory args,
+        bytes32 salt
+    ) external view virtual returns (address) {
+        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
+
+        return $.implementation.predictDeterministicAddress(_encodeImmutableArgs(args), salt, address(this));
+    }
+
     /**
      * @dev creat deterministic address contracts
      */
     function creatContracts(
-        string[] calldata nameAndSymbolList
-    ) external onlyRole(CREATOR_ROLE) returns (address[] memory addressList) {
+        string[] calldata nameAndSymbolList /*onlyRole(CREATOR_ROLE)*/
+    ) external returns (address[] memory addressList) {
         PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
 
         if (nameAndSymbolList.length % 2 != 0) revert InvalidInput(nameAndSymbolList);
@@ -128,6 +142,13 @@ contract PropositionMarketFactory is Initializable, PausableUpgradeable, AccessC
         }
     }
 
+    function creatContracts(MarketSettings memory args, bytes32 salt) external returns (address pool) {
+        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
+        bytes memory data = abi.encodePacked(address(this), uint16(20));
+        pool = LibClone.cloneDeterministic(0,$.implementation,data, salt);
+        return pool;
+    }
+
     /**
      * @dev Get predicts the init code hash
      */
@@ -135,5 +156,34 @@ contract PropositionMarketFactory is Initializable, PausableUpgradeable, AccessC
         PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
 
         return $.tokenImplementation.initCodeHash(abi.encodePacked(args.owner, args.name, args.symbol));
+    }
+
+    /**
+     * @dev Get predicts the init code hash
+     */
+    function predictInitCodeHash(MarketSettings memory args) public view virtual returns (bytes32) {
+        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
+
+        return $.implementation.initCodeHash(_encodeImmutableArgs(args));
+    }
+
+    function _encodeImmutableArgs(MarketSettings memory args) internal view virtual returns (bytes memory) {
+        // PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
+
+        // uint256[] memory tokenList = new uint256[](args.tokenList.length);
+        // for (uint256 i; i < tokenList.length; ) {
+        //     tokenList[i] = uint256(uint160(args.tokenList[0]));
+        //     unchecked {
+        //         ++i;
+        //     }
+        // }
+
+        unchecked {
+            return
+                abi.encodePacked(
+                    // forgefmt: disable-start
+                address(this),uint16(20)
+                ); // forgefmt: disable-end
+        }
     }
 }
