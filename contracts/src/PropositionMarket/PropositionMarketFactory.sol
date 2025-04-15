@@ -93,7 +93,7 @@ contract PropositionMarketFactory is
         _getPropositionMarketFactoryStorage().factorySettings.feeRecipient = newFeeRecipient;
     }
 
-    function creatContracts(TokenSettings[] memory tokenSettings, bytes32 salt) external returns (address pool) {
+    function createContracts(TokenSettings[] memory tokenSettings, bytes32 salt) external returns (address pool) {
         PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
 
         address[] memory addressList = new address[](tokenSettings.length + 1);
@@ -118,6 +118,7 @@ contract PropositionMarketFactory is
                 ++i;
             }
         }
+        emit createPool(pool);
         return pool;
     }
 

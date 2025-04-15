@@ -77,7 +77,7 @@ contract PropositionMarketFactoryTest is Test {
             nameAndSymbolList,
             keccak256("testtesttesttest")
         );
-        address pool = propositionMarketFactory.creatContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(nameAndSymbolList, keccak256("testtesttesttest"));
 
         assertEq(pool, predictPool);
 
@@ -100,7 +100,7 @@ contract PropositionMarketFactoryTest is Test {
         newNameAndSymbolList[0].name = "Test Token One";
         newNameAndSymbolList[0].symbol = "TTO";
 
-        address pool = propositionMarketFactory.creatContracts(newNameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(newNameAndSymbolList, keccak256("testtesttesttest"));
         address[] memory addressList = PropositionMarketPool(pool).getOptionList();
 
         assertEq(PropositionMarketToken(addressList[0]).owner(), address(pool));

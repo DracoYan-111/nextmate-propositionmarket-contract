@@ -56,7 +56,7 @@ contract PropositionMarketPoolTest is Test {
     function test_optionListlength() public {
         vm.startPrank(initialOwner, initialOwner);
 
-        address pool = propositionMarketFactory.creatContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(nameAndSymbolList, keccak256("testtesttesttest"));
 
         assertEq(PropositionMarketPool(pool).getOptionListLength(), nameAndSymbolList.length);
     }
@@ -64,7 +64,7 @@ contract PropositionMarketPoolTest is Test {
     function test_optionList() public {
         vm.startPrank(initialOwner, initialOwner);
 
-        address pool = propositionMarketFactory.creatContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(nameAndSymbolList, keccak256("testtesttesttest"));
 
         address[] memory propositionTokenAddressList = propositionMarketFactory.predictDeterministicAddress(
             nameAndSymbolList
@@ -82,7 +82,7 @@ contract PropositionMarketPoolTest is Test {
     function test_getFactoryAddress() public {
         vm.startPrank(initialOwner, initialOwner);
 
-        address pool = propositionMarketFactory.creatContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(nameAndSymbolList, keccak256("testtesttesttest"));
 
         assertEq(PropositionMarketPool(pool).getFactoryAddress(), address(propositionMarketFactory));
     }
@@ -90,7 +90,7 @@ contract PropositionMarketPoolTest is Test {
     function test_factorySettings() public {
         vm.startPrank(initialOwner, initialOwner);
 
-        address pool = propositionMarketFactory.creatContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(nameAndSymbolList, keccak256("testtesttesttest"));
 
         assertEq(PropositionMarketPool(pool).getFeeRecipient(), address(initialOwner));
         assertEq(PropositionMarketPool(pool).getPlatformFee(), 10);

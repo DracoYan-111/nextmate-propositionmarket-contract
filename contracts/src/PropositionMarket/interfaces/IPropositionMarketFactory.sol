@@ -7,4 +7,6 @@ interface IPropositionMarketToken {
 
 interface IPropositionMarketFactory {
     error InvalidInput(string[]);
+
+    event createPool(address indexed pool);
 }
