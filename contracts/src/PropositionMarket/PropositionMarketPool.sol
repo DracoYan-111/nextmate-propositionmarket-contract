@@ -8,6 +8,8 @@ import {LibString} from "solady/src/utils/LibString.sol";
 import {IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
 
 contract PropositionMarketPool is IPropositionMarketPool, CWIA {
+    using LibString for *;
+
     bool public paused;
     bool public closed;
 
@@ -49,6 +51,12 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
             address dataPointer = _getArgAddress(8);
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
             return fullList[fullList.length - 1];
+        }
+    }
+
+    function getPoolTitle() public pure returns (string memory) {
+        unchecked {
+            return _getArgBytes32(28).fromSmallString();
         }
     }
 

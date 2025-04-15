@@ -58,6 +58,7 @@ contract PropositionMarketPoolTest is Test {
 
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
+            "testtesttesttest",
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -70,6 +71,7 @@ contract PropositionMarketPoolTest is Test {
 
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
+            "testtesttesttest",
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -92,6 +94,7 @@ contract PropositionMarketPoolTest is Test {
 
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
+            "testtesttesttest",
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -104,6 +107,7 @@ contract PropositionMarketPoolTest is Test {
 
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
+            "testtesttesttest",
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -111,11 +115,25 @@ contract PropositionMarketPoolTest is Test {
         assertEq(PropositionMarketPool(pool).getManagerAddress(), initialOwner);
     }
 
+    function test_getPoolTitle() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            "testtesttesttest",
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
+
+        assertEq(PropositionMarketPool(pool).getPoolTitle(), "testtesttesttest");
+    }
+
     function test_factorySettings() public {
         vm.startPrank(initialOwner, initialOwner);
 
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
+            "testtesttesttest",
             initialOwner,
             keccak256("testtesttesttest")
         );

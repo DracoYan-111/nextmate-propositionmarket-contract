@@ -95,6 +95,7 @@ contract PropositionMarketFactory is
 
     function createContracts(
         TokenSettings[] memory tokenSettings,
+        string calldata poolTitle,
         address manager,
         bytes32 salt
     ) external returns (address pool) {
@@ -113,7 +114,8 @@ contract PropositionMarketFactory is
 
         bytes memory addressListData = _encodeImmutableArgs(
             SSTORE2.writeCounterfactual(abi.encode(addressList), keccak256(abi.encode(addressList))),
-            tokenSettings.length
+            tokenSettings.length,
+            poolTitle
         );
         pool = $.implementation.cloneDeterministic(addressListData, salt);
 
@@ -150,6 +152,7 @@ contract PropositionMarketFactory is
 
     function predictDeterministicAddress(
         TokenSettings[] calldata tokenSettings,
+        string calldata poolTitle,
         address manager,
         bytes32 salt
     ) public view virtual returns (address pool) {
@@ -169,7 +172,8 @@ contract PropositionMarketFactory is
 
             bytes memory addressListData = _encodeImmutableArgs(
                 SSTORE2.predictCounterfactualAddress(abi.encode(addressList), keccak256(abi.encode(addressList))),
-                tokenSettings.length
+                tokenSettings.length,
+                poolTitle
             );
             pool = _getPropositionMarketFactoryStorage().implementation.predictDeterministicAddress(
                 addressListData,
@@ -188,17 +192,25 @@ contract PropositionMarketFactory is
         }
     }
 
-    function _encodeImmutableArgs(address dataPointer, uint256 length) internal view virtual returns (bytes memory) {
+    function _encodeImmutableArgs(
+        address dataPointer,
+        uint256 length,
+        string calldata poolTitle
+    ) internal view virtual returns (bytes memory) {
         unchecked {
-            return abi.encodePacked(abi.encodePacked(uint64(length)), dataPointer);
+            return abi.encodePacked(abi.encodePacked(uint64(length)), dataPointer, poolTitle.toSmallString());
         }
     }
 
-    function predictInitCodeHash(TokenSettings[] calldata tokenSettings) external view virtual returns (bytes32) {
+    function predictInitCodeHash(
+        TokenSettings[] calldata tokenSettings,
+        string calldata poolTitle,
+        address manager
+    ) external view virtual returns (bytes32) {
         address[] memory oldList = predictDeterministicAddress(tokenSettings);
         uint256 len = oldList.length;
 
-        address[] memory addressList = new address[](len + 1);
+        address[] memory addressList = new address[](len + 2);
 
         for (uint256 i = 0; i < len; ) {
             addressList[i] = oldList[i];
@@ -206,10 +218,12 @@ contract PropositionMarketFactory is
         }
 
         addressList[len] = address(this);
+        addressList[len + 1] = manager;
 
         bytes memory addressListData = _encodeImmutableArgs(
             SSTORE2.predictCounterfactualAddress(abi.encode(addressList), keccak256(abi.encode(addressList))),
-            tokenSettings.length
+            tokenSettings.length,
+            poolTitle
         );
 
         return _getPropositionMarketFactoryStorage().implementation.initCodeHash(addressListData);

@@ -64,6 +64,7 @@ contract PropositionMarketFactoryTest is Test {
 
         address pool = propositionMarketFactory.predictDeterministicAddress(
             nameAndSymbolList,
+            "testtesttesttest",
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -76,11 +77,13 @@ contract PropositionMarketFactoryTest is Test {
 
         address predictPool = propositionMarketFactory.predictDeterministicAddress(
             nameAndSymbolList,
+            "testtesttesttest",
             initialOwner,
             keccak256("testtesttesttest")
         );
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
+            "testtesttesttest",
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -108,6 +111,7 @@ contract PropositionMarketFactoryTest is Test {
 
         address pool = propositionMarketFactory.createContracts(
             newNameAndSymbolList,
+            "testtesttesttest",
             initialOwner,
             keccak256("testtesttesttest")
         );
