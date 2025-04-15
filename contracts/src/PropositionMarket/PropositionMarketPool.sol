@@ -1,30 +1,49 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Clone} from "solady/src/utils/Clone.sol";
-import {IPropositionMarketPool} from "./interfaces/IPropositionMarketPool.sol";
+import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
+import {CWIA} from "solady/src/utils/legacy/CWIA.sol";
+import {LibString} from "solady/src/utils/LibString.sol";
 
-contract PropositionMarketPool is IPropositionMarketPool, Clone {
-    uint256 public lalalala = 294497;
+import {IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
+
+contract PropositionMarketPool is IPropositionMarketPool, CWIA {
     bool public paused;
     bool public closed;
 
-    function optionListLength() public pure virtual returns (address) {
-        return _getArgAddress(0);
+    function getOptionListLength() external pure returns (uint256) {
+        return _getArgUint64(0);
     }
-   function optionListLengthsss() public pure virtual returns (uint256) {
-        return _getImmutableArgsOffset();
+
+    function getOptionList() external view returns (address[] memory) {
+        unchecked {
+            address dataPointer = _getArgAddress(8);
+            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
+
+            uint256 len = fullList.length;
+
+            address[] memory sliced = new address[](len - 1);
+            for (uint256 i = 0; i < len - 1; ++i) {
+                sliced[i] = fullList[i];
+            }
+
+            return sliced;
+        }
     }
-    // function optionList() public pure virtual returns (address[] memory) {
-    //     uint256 optionListLength256 = optionListLength();
-    //     address[] memory optionTokenList = new address[](optionListLength256);
-    //     uint256[] memory optionList256 = _getArgUint256Array(8, optionListLength256);
-    //     for (uint256 i; i < optionListLength256; ) {
-    //         optionTokenList[i] = address(uint160(optionList256[i]));
-    //         unchecked {
-    //             ++i;
-    //         }
-    //     }
-    //     return optionTokenList;
-    // }
+
+    function getFactoryAddress() public view returns (address) {
+        unchecked {
+            address dataPointer = _getArgAddress(8);
+            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
+            return fullList[fullList.length - 1];
+        }
+    }
+
+    function getPlatformFee() external view returns (uint256) {
+        return IPropositionMarketFactory(getFactoryAddress()).getPlatformFee();
+    }
+
+    function getFeeRecipient() external view returns (address) {
+        return IPropositionMarketFactory(getFactoryAddress()).getFeeRecipient();
+    }
 }

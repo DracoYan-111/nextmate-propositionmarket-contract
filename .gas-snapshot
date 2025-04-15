@@ -1,1 +1,7 @@
-GreeterTest:testCreateGreeter() (gas: 19817)
+PropositionMarketFactoryTest:test_creatContracts() (gas: 390843)
+PropositionMarketFactoryTest:test_predictDeterministicAddress() (gas: 58736)
+PropositionMarketFactoryTest:test_tokenOwner() (gas: 300656)
+PropositionMarketPoolTest:test_factorySettings() (gas: 370209)
+PropositionMarketPoolTest:test_getFactoryAddress() (gas: 363513)
+PropositionMarketPoolTest:test_optionList() (gas: 376963)
+PropositionMarketPoolTest:test_optionListlength() (gas: 362227)

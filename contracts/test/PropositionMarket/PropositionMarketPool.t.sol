@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.23;
 
+import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
+
 import {PropositionMarketFactory, FactorySettings, TokenSettings, MarketSettings} from "../../src/PropositionMarket/PropositionMarketFactory.sol";
 import {PropositionMarketToken, ERC20, Ownable} from "../../src/PropositionMarket/PropositionMarketToken.sol";
 import {PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
@@ -10,7 +12,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 
-contract PropositionMarketFactoryTest is Test {
+contract PropositionMarketPoolTest is Test {
     PropositionMarketFactory public propositionMarketFactory;
     TokenSettings[] public nameAndSymbolList;
     address public initialOwner;
@@ -33,7 +35,7 @@ contract PropositionMarketFactoryTest is Test {
                 initialOwner,
                 propositionMarketPool,
                 tokenAddress,
-                FactorySettings({feeRecipient: initialOwner, platformFee: 0})
+                FactorySettings({feeRecipient: initialOwner, platformFee: 10})
             )
         );
         address proxy = address(new ERC1967Proxy(propositionMarketFactoryAddress, data));
@@ -51,67 +53,46 @@ contract PropositionMarketFactoryTest is Test {
         nameAndSymbolList[1].symbol = "TTT";
     }
 
-    function test_predictDeterministicAddress() external {
+    function test_optionListlength() public {
         vm.startPrank(initialOwner, initialOwner);
 
-        address[] memory predictTokenAddressList = propositionMarketFactory.predictDeterministicAddress(
-            nameAndSymbolList
-        );
-
-        for (uint256 i; i < predictTokenAddressList.length; i++) {
-            assertNotEq(predictTokenAddressList[i], address(0));
-        }
-
-        address pool = propositionMarketFactory.predictDeterministicAddress(
-            nameAndSymbolList,
-            keccak256("testtesttesttest")
-        );
-
-        assertNotEq(pool, address(0));
-    }
-
-    function test_creatContracts() external {
-        vm.startPrank(initialOwner, initialOwner);
-
-        address predictPool = propositionMarketFactory.predictDeterministicAddress(
-            nameAndSymbolList,
-            keccak256("testtesttesttest")
-        );
         address pool = propositionMarketFactory.creatContracts(nameAndSymbolList, keccak256("testtesttesttest"));
 
-        assertEq(pool, predictPool);
+        assertEq(PropositionMarketPool(pool).getOptionListLength(), nameAndSymbolList.length);
+    }
 
-        address[] memory predictTokenAddressList = propositionMarketFactory.predictDeterministicAddress(
+    function test_optionList() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address pool = propositionMarketFactory.creatContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+
+        address[] memory propositionTokenAddressList = propositionMarketFactory.predictDeterministicAddress(
             nameAndSymbolList
         );
 
         address[] memory tokenAddressList = PropositionMarketPool(pool).getOptionList();
 
+        assertEq(propositionTokenAddressList.length, tokenAddressList.length);
+
         for (uint256 i; i < tokenAddressList.length; i++) {
-            assertEq(tokenAddressList[i], predictTokenAddressList[i]);
+            assertEq(propositionTokenAddressList[i], tokenAddressList[i]);
         }
     }
 
-    function test_tokenOwner() external {
+    function test_getFactoryAddress() public {
         vm.startPrank(initialOwner, initialOwner);
-        TokenSettings[] memory newNameAndSymbolList = new TokenSettings[](1);
 
-        newNameAndSymbolList[0].owner = address(propositionMarketFactory);
-        newNameAndSymbolList[0].name = "Test Token One";
-        newNameAndSymbolList[0].symbol = "TTO";
+        address pool = propositionMarketFactory.creatContracts(nameAndSymbolList, keccak256("testtesttesttest"));
 
-        address pool = propositionMarketFactory.creatContracts(newNameAndSymbolList, keccak256("testtesttesttest"));
-        address[] memory addressList = PropositionMarketPool(pool).getOptionList();
+        assertEq(PropositionMarketPool(pool).getFactoryAddress(), address(propositionMarketFactory));
+    }
 
-        assertEq(PropositionMarketToken(addressList[0]).owner(), address(pool));
+    function test_factorySettings() public {
+        vm.startPrank(initialOwner, initialOwner);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, initialOwner));
-        PropositionMarketToken(addressList[0]).mint(initialOwner, 1 ether);
-        assertEq(PropositionMarketToken(addressList[0]).balanceOf(initialOwner), 0 ether);
+        address pool = propositionMarketFactory.creatContracts(nameAndSymbolList, keccak256("testtesttesttest"));
 
-        vm.startPrank(address(pool), address(pool));
-
-        PropositionMarketToken(addressList[0]).mint(initialOwner, 1 ether);
-        assertEq(PropositionMarketToken(addressList[0]).balanceOf(initialOwner), 1 ether);
+        assertEq(PropositionMarketPool(pool).getFeeRecipient(), address(initialOwner));
+        assertEq(PropositionMarketPool(pool).getPlatformFee(), 10);
     }
 }
