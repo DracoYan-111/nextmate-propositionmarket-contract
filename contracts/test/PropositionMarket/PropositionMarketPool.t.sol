@@ -56,7 +56,11 @@ contract PropositionMarketPoolTest is Test {
     function test_optionListlength() public {
         vm.startPrank(initialOwner, initialOwner);
 
-        address pool = propositionMarketFactory.createContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
 
         assertEq(PropositionMarketPool(pool).getOptionListLength(), nameAndSymbolList.length);
     }
@@ -64,7 +68,11 @@ contract PropositionMarketPoolTest is Test {
     function test_optionList() public {
         vm.startPrank(initialOwner, initialOwner);
 
-        address pool = propositionMarketFactory.createContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
 
         address[] memory propositionTokenAddressList = propositionMarketFactory.predictDeterministicAddress(
             nameAndSymbolList
@@ -82,15 +90,35 @@ contract PropositionMarketPoolTest is Test {
     function test_getFactoryAddress() public {
         vm.startPrank(initialOwner, initialOwner);
 
-        address pool = propositionMarketFactory.createContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
 
         assertEq(PropositionMarketPool(pool).getFactoryAddress(), address(propositionMarketFactory));
+    }
+
+    function test_getManagerAddress() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
+
+        assertEq(PropositionMarketPool(pool).getManagerAddress(), initialOwner);
     }
 
     function test_factorySettings() public {
         vm.startPrank(initialOwner, initialOwner);
 
-        address pool = propositionMarketFactory.createContracts(nameAndSymbolList, keccak256("testtesttesttest"));
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
 
         assertEq(PropositionMarketPool(pool).getFeeRecipient(), address(initialOwner));
         assertEq(PropositionMarketPool(pool).getPlatformFee(), 10);

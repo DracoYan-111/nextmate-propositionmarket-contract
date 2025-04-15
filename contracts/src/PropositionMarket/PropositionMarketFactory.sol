@@ -93,10 +93,14 @@ contract PropositionMarketFactory is
         _getPropositionMarketFactoryStorage().factorySettings.feeRecipient = newFeeRecipient;
     }
 
-    function createContracts(TokenSettings[] memory tokenSettings, bytes32 salt) external returns (address pool) {
+    function createContracts(
+        TokenSettings[] memory tokenSettings,
+        address manager,
+        bytes32 salt
+    ) external returns (address pool) {
         PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
 
-        address[] memory addressList = new address[](tokenSettings.length + 1);
+        address[] memory addressList = new address[](tokenSettings.length + 2);
         for (uint256 i = 0; i < tokenSettings.length; ) {
             (bytes memory tokenSettingsData, bytes32 tokenSettingsSalt) = _encodeImmutableArgs(tokenSettings[i]);
             addressList[i] = $.tokenImplementation.cloneDeterministic(tokenSettingsData, tokenSettingsSalt);
@@ -105,6 +109,7 @@ contract PropositionMarketFactory is
             }
         }
         addressList[tokenSettings.length] = address(this);
+        addressList[tokenSettings.length + 1] = manager;
 
         bytes memory addressListData = _encodeImmutableArgs(
             SSTORE2.writeCounterfactual(abi.encode(addressList), keccak256(abi.encode(addressList))),
@@ -112,7 +117,7 @@ contract PropositionMarketFactory is
         );
         pool = $.implementation.cloneDeterministic(addressListData, salt);
 
-        for (uint256 i = 0; i < addressList.length - 1; ) {
+        for (uint256 i = 0; i < addressList.length - 2; ) {
             IPropositionMarketToken(addressList[i]).transferOwnership(pool);
             unchecked {
                 ++i;
@@ -145,13 +150,14 @@ contract PropositionMarketFactory is
 
     function predictDeterministicAddress(
         TokenSettings[] calldata tokenSettings,
+        address manager,
         bytes32 salt
     ) public view virtual returns (address pool) {
         unchecked {
             address[] memory oldList = predictDeterministicAddress(tokenSettings);
             uint256 len = oldList.length;
 
-            address[] memory addressList = new address[](len + 1);
+            address[] memory addressList = new address[](len + 2);
 
             for (uint256 i = 0; i < len; ) {
                 addressList[i] = oldList[i];
@@ -159,6 +165,7 @@ contract PropositionMarketFactory is
             }
 
             addressList[len] = address(this);
+            addressList[len + 1] = manager;
 
             bytes memory addressListData = _encodeImmutableArgs(
                 SSTORE2.predictCounterfactualAddress(abi.encode(addressList), keccak256(abi.encode(addressList))),
