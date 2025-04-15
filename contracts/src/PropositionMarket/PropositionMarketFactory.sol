@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Ownable} from "solady/src/auth/Ownable.sol";
-import {LibClone} from "solady/src/utils/LibClone.sol";
+import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
+import {LibString} from "solady/src/utils/LibString.sol";
+import {LibCWIA} from "solady/src/utils/legacy/LibCWIA.sol";
 import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
-
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {PausableUpgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IPropositionMarketToken, IPropositionMarketFactory} from "./interfaces/IPropositionMarketFactory.sol";
 
 struct MarketSettings {
-    address[] tokenList;
+    address[] tokenDataList;
 }
 
 struct TokenSettings {
@@ -33,7 +33,8 @@ contract PropositionMarketFactory is
     UUPSUpgradeable,
     IPropositionMarketFactory
 {
-    using LibClone for *;
+    using LibCWIA for *;
+    using LibString for *;
     using SafeTransferLib for *;
 
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -84,7 +85,135 @@ contract PropositionMarketFactory is
         _unpause();
     }
 
+    function setPlatformFee(uint48 newPlatformFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _getPropositionMarketFactoryStorage().factorySettings.platformFee = newPlatformFee;
+    }
+
+    function setFeeRecipient(address newFeeRecipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _getPropositionMarketFactoryStorage().factorySettings.feeRecipient = newFeeRecipient;
+    }
+
+    function creatContracts(TokenSettings[] memory tokenSettings, bytes32 salt) external returns (address pool) {
+        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
+
+        address[] memory addressList = new address[](tokenSettings.length + 1);
+        for (uint256 i = 0; i < tokenSettings.length; ) {
+            (bytes memory tokenSettingsData, bytes32 tokenSettingsSalt) = _encodeImmutableArgs(tokenSettings[i]);
+            addressList[i] = $.tokenImplementation.cloneDeterministic(tokenSettingsData, tokenSettingsSalt);
+            unchecked {
+                ++i;
+            }
+        }
+        addressList[tokenSettings.length] = address(this);
+
+        bytes memory addressListData = _encodeImmutableArgs(
+            SSTORE2.writeCounterfactual(abi.encode(addressList), keccak256(abi.encode(addressList))),
+            tokenSettings.length
+        );
+        pool = $.implementation.cloneDeterministic(addressListData, salt);
+
+        for (uint256 i = 0; i < addressList.length - 1; ) {
+            IPropositionMarketToken(addressList[i]).transferOwnership(pool);
+            unchecked {
+                ++i;
+            }
+        }
+        return pool;
+    }
+
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
+
+    /**
+     * @dev Get predict deterministic address
+     */
+    function predictDeterministicAddress(
+        TokenSettings[] calldata tokenSettings
+    ) public view virtual returns (address[] memory addressList) {
+        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
+
+        unchecked {
+            addressList = new address[](tokenSettings.length);
+
+            for (uint256 i = 0; i < tokenSettings.length; ) {
+                (bytes memory data, bytes32 salt) = _encodeImmutableArgs(tokenSettings[i]);
+                addressList[i] = $.tokenImplementation.predictDeterministicAddress(data, salt, address(this));
+                ++i;
+            }
+        }
+    }
+
+    function predictDeterministicAddress(
+        TokenSettings[] calldata tokenSettings,
+        bytes32 salt
+    ) public view virtual returns (address pool) {
+        unchecked {
+            address[] memory oldList = predictDeterministicAddress(tokenSettings);
+            uint256 len = oldList.length;
+
+            address[] memory addressList = new address[](len + 1);
+
+            for (uint256 i = 0; i < len; ) {
+                addressList[i] = oldList[i];
+                ++i;
+            }
+
+            addressList[len] = address(this);
+
+            bytes memory addressListData = _encodeImmutableArgs(
+                SSTORE2.predictCounterfactualAddress(abi.encode(addressList), keccak256(abi.encode(addressList))),
+                tokenSettings.length
+            );
+            pool = _getPropositionMarketFactoryStorage().implementation.predictDeterministicAddress(
+                addressListData,
+                salt,
+                address(this)
+            );
+        }
+    }
+
+    function _encodeImmutableArgs(TokenSettings memory args) internal view virtual returns (bytes memory, bytes32) {
+        unchecked {
+            return (
+                abi.encodePacked(args.owner, args.name.toSmallString(), args.symbol.toSmallString()),
+                keccak256(abi.encodePacked(args.owner, args.name, args.symbol))
+            );
+        }
+    }
+
+    function _encodeImmutableArgs(address dataPointer, uint256 length) internal view virtual returns (bytes memory) {
+        unchecked {
+            return abi.encodePacked(abi.encodePacked(uint64(length)), dataPointer);
+        }
+    }
+
+    function predictInitCodeHash(TokenSettings[] calldata tokenSettings) external view virtual returns (bytes32) {
+        address[] memory oldList = predictDeterministicAddress(tokenSettings);
+        uint256 len = oldList.length;
+
+        address[] memory addressList = new address[](len + 1);
+
+        for (uint256 i = 0; i < len; ) {
+            addressList[i] = oldList[i];
+            ++i;
+        }
+
+        addressList[len] = address(this);
+
+        bytes memory addressListData = _encodeImmutableArgs(
+            SSTORE2.predictCounterfactualAddress(abi.encode(addressList), keccak256(abi.encode(addressList))),
+            tokenSettings.length
+        );
+
+        return _getPropositionMarketFactoryStorage().implementation.initCodeHash(addressListData);
+    }
+
+    function getPlatformFee() external view returns (uint256) {
+        return _getPropositionMarketFactoryStorage().factorySettings.platformFee;
+    }
+
+    function getFeeRecipient() external view returns (address) {
+        return _getPropositionMarketFactoryStorage().factorySettings.feeRecipient;
+    }
 
     /**
      * @dev Get PropositionMarketFactoryStorage data
@@ -92,98 +221,6 @@ contract PropositionMarketFactory is
     function _getPropositionMarketFactoryStorage() private pure returns (PropositionMarketFactoryStorage storage $) {
         assembly {
             $.slot := PropositionMarketFactoryStorageLocation
-        }
-    }
-
-    /**
-     * @dev Get deterministic address
-     */
-    function predictDeterministicAddress(TokenSettings memory args) external view virtual returns (address) {
-        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
-
-        return $.tokenImplementation.predictDeterministicAddress(predictInitCodeHash(args), address(this));
-    }
-
-    function predictDeterministicAddress(
-        MarketSettings memory args,
-        bytes32 salt
-    ) external view virtual returns (address) {
-        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
-
-        return $.implementation.predictDeterministicAddress(_encodeImmutableArgs(args), salt, address(this));
-    }
-
-    /**
-     * @dev creat deterministic address contracts
-     */
-    function creatContracts(
-        string[] calldata nameAndSymbolList /*onlyRole(CREATOR_ROLE)*/
-    ) external returns (address[] memory addressList) {
-        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
-
-        if (nameAndSymbolList.length % 2 != 0) revert InvalidInput(nameAndSymbolList);
-
-        uint256 count = nameAndSymbolList.length / 2;
-        addressList = new address[](count);
-
-        for (uint256 i = 0; i < count; ) {
-            TokenSettings memory args = TokenSettings({
-                owner: address(this),
-                name: nameAndSymbolList[i * 2],
-                symbol: nameAndSymbolList[i * 2 + 1]
-            });
-
-            addressList[i] = $.tokenImplementation.cloneDeterministic(predictInitCodeHash(args));
-
-            IPropositionMarketToken(addressList[i]).initialize(args.owner, args.name, args.symbol);
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    function creatContracts(MarketSettings memory args, bytes32 salt) external returns (address pool) {
-        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
-        bytes memory data = abi.encodePacked(address(this), uint16(20));
-        pool = LibClone.cloneDeterministic(0,$.implementation,data, salt);
-        return pool;
-    }
-
-    /**
-     * @dev Get predicts the init code hash
-     */
-    function predictInitCodeHash(TokenSettings memory args) public view virtual returns (bytes32) {
-        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
-
-        return $.tokenImplementation.initCodeHash(abi.encodePacked(args.owner, args.name, args.symbol));
-    }
-
-    /**
-     * @dev Get predicts the init code hash
-     */
-    function predictInitCodeHash(MarketSettings memory args) public view virtual returns (bytes32) {
-        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
-
-        return $.implementation.initCodeHash(_encodeImmutableArgs(args));
-    }
-
-    function _encodeImmutableArgs(MarketSettings memory args) internal view virtual returns (bytes memory) {
-        // PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
-
-        // uint256[] memory tokenList = new uint256[](args.tokenList.length);
-        // for (uint256 i; i < tokenList.length; ) {
-        //     tokenList[i] = uint256(uint160(args.tokenList[0]));
-        //     unchecked {
-        //         ++i;
-        //     }
-        // }
-
-        unchecked {
-            return
-                abi.encodePacked(
-                    // forgefmt: disable-start
-                address(this),uint16(20)
-                ); // forgefmt: disable-end
         }
     }
 }

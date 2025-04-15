@@ -1,25 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+import {CWIA} from "solady/src/utils/legacy/CWIA.sol";
+import {LibString} from "solady/src/utils/LibString.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {ERC20Upgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {ERC20PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @custom:security-contact draco@nextmate.ai
-contract PropositionMarketToken is Initializable, ERC20Upgradeable, ERC20PausableUpgradeable, OwnableUpgradeable {
-    function initialize(address initialOwner, string memory name, string memory symbol) external initializer {
-        __ERC20_init(name, symbol);
-        __ERC20Pausable_init();
-        __Ownable_init(initialOwner);
+contract PropositionMarketToken is ERC20, Ownable, CWIA {
+    using LibString for *;
+
+    constructor() ERC20(type(PropositionMarketToken).name, type(PropositionMarketToken).name) Ownable(address(this)) {}
+
+    function owner() public view override returns (address) {
+        return super.owner() == address(0) ? _getArgAddress(0) : super.owner();
     }
 
-    function pause() public onlyOwner {
-        _pause();
+    function name() public pure override returns (string memory) {
+        return _getArgBytes32(20).fromSmallString();
     }
 
-    function unpause() public onlyOwner {
-        _unpause();
+    function symbol() public pure override returns (string memory) {
+        return _getArgBytes32(52).fromSmallString();
     }
 
     function mint(address to, uint256 amount) public onlyOwner {
@@ -28,13 +30,5 @@ contract PropositionMarketToken is Initializable, ERC20Upgradeable, ERC20Pausabl
 
     function burn(address to, uint256 amount) public onlyOwner {
         _burn(to, amount);
-    }
-
-    function _update(
-        address from,
-        address to,
-        uint256 value
-    ) internal override(ERC20Upgradeable, ERC20PausableUpgradeable) {
-        super._update(from, to, value);
     }
 }
