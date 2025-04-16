@@ -193,4 +193,36 @@ contract PropositionMarketPoolTest is Test {
         );
         PropositionMarketPool(pool).receivePlatformFee(initialOwner);
     }
+
+    function test_pausedPool() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            "testtesttesttest",
+            address(testTokenAddress),
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
+
+        vm.startPrank(
+            address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
+            address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8)
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IPropositionMarketPool.OwnableUnauthorizedAccount.selector,
+                address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8)
+            )
+        );
+        PropositionMarketPool(pool).pausedPool();
+
+        vm.startPrank(initialOwner, initialOwner);
+
+        PropositionMarketPool(pool).pausedPool();
+
+        vm.expectRevert(abi.encodeWithSelector(IPropositionMarketPool.EnforcedPause.selector));
+        PropositionMarketPool(pool).pausedPool();
+    }
 }
