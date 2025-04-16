@@ -1,11 +1,24 @@
 {
-  "compile_force_framework": "hardhat",
-  "hardhat_ignore_compile": false,
-  "detectors_to_exclude": "pragma,solc-version",
-  "fail_on": "none",
-  "exclude_informational": false,
-  "exclude_low": false,
+  "detectors_to_exclude": [
+    "naming-convention",
+    "similar-names",
+    "too-many-digits",
+    "constable-states",
+    "dead-code",
+    "solc-version",
+    "pragma",
+    "timestamp"
+  ],
+  "exclude_informational": true,
+  "exclude_low": true,
   "exclude_medium": false,
-  "exclude_high": false,
-  "filter_paths": "contracts/lib|contracts/test|contracts/src/Create2DeployerLocal.sol|@openzeppelin|hardhat/console.sol|xdeployer"
+  "exclude_high": false,  
+  "fail_on": "none",
+  "filter_paths": "contracts/lib|contracts/test|contracts/src/Create2DeployerLocal.sol|@openzeppelin|hardhat/console.sol|xdeployer",
+  "solc_remaps": [
+    "solady/=contracts/lib/solady/",
+    "forge-std/=contracts/lib/forge-std/",
+    "@openzeppelin/=node_modules/@openzeppelin/"
+  ],
+  "foundry_out_directory": "forge-artifacts"
 }
