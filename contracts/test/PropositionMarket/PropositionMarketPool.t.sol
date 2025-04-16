@@ -6,6 +6,7 @@ import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 import {PropositionMarketFactory, FactorySettings, TokenSettings, MarketSettings} from "../../src/PropositionMarket/PropositionMarketFactory.sol";
 import {PropositionMarketToken, ERC20, Ownable} from "../../src/PropositionMarket/PropositionMarketToken.sol";
 import {PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
+import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -15,6 +16,8 @@ import {Test} from "forge-std/Test.sol";
 contract PropositionMarketPoolTest is Test {
     PropositionMarketFactory public propositionMarketFactory;
     TokenSettings[] public nameAndSymbolList;
+    TestToken public testTokenAddress;
+
     address public initialOwner;
     uint256 public constant INITIALOWNERKEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
 
@@ -28,6 +31,7 @@ contract PropositionMarketPoolTest is Test {
 
         address tokenAddress = address(new PropositionMarketToken());
         address propositionMarketPool = address(new PropositionMarketPool());
+        testTokenAddress = new TestToken(initialOwner);
 
         bytes memory data = abi.encodeCall(
             PropositionMarketFactory.initialize,
@@ -59,6 +63,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -72,6 +77,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -95,6 +101,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -108,6 +115,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -121,11 +129,26 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );
 
         assertEq(PropositionMarketPool(pool).getPoolTitle(), "testtesttesttest");
+    }
+
+    function test_getPayTokenAddress() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            "testtesttesttest",
+            address(testTokenAddress),
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
+
+        assertEq(PropositionMarketPool(pool).getPayTokenAddress(), address(testTokenAddress));
     }
 
     function test_factorySettings() public {
@@ -134,6 +157,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );

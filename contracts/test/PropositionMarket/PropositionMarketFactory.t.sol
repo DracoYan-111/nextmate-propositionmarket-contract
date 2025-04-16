@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import {PropositionMarketFactory, FactorySettings, TokenSettings, MarketSettings} from "../../src/PropositionMarket/PropositionMarketFactory.sol";
 import {PropositionMarketToken, ERC20, Ownable} from "../../src/PropositionMarket/PropositionMarketToken.sol";
 import {PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
+import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -13,6 +14,7 @@ import {Test} from "forge-std/Test.sol";
 contract PropositionMarketFactoryTest is Test {
     PropositionMarketFactory public propositionMarketFactory;
     TokenSettings[] public nameAndSymbolList;
+    TestToken public testTokenAddress;
     address public initialOwner;
     uint256 public constant INITIALOWNERKEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
 
@@ -26,6 +28,7 @@ contract PropositionMarketFactoryTest is Test {
 
         address tokenAddress = address(new PropositionMarketToken());
         address propositionMarketPool = address(new PropositionMarketPool());
+        testTokenAddress = new TestToken(initialOwner);
 
         bytes memory data = abi.encodeCall(
             PropositionMarketFactory.initialize,
@@ -65,6 +68,7 @@ contract PropositionMarketFactoryTest is Test {
         address pool = propositionMarketFactory.predictDeterministicAddress(
             nameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -78,12 +82,14 @@ contract PropositionMarketFactoryTest is Test {
         address predictPool = propositionMarketFactory.predictDeterministicAddress(
             nameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );
@@ -112,6 +118,7 @@ contract PropositionMarketFactoryTest is Test {
         address pool = propositionMarketFactory.createContracts(
             newNameAndSymbolList,
             "testtesttesttest",
+            address(testTokenAddress),
             initialOwner,
             keccak256("testtesttesttest")
         );

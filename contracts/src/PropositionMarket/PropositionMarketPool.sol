@@ -42,11 +42,19 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         unchecked {
             address dataPointer = _getArgAddress(8);
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
-            return fullList[fullList.length - 2];
+            return fullList[fullList.length - 3];
         }
     }
 
     function getManagerAddress() public view returns (address) {
+        unchecked {
+            address dataPointer = _getArgAddress(8);
+            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
+            return fullList[fullList.length - 2];
+        }
+    }
+
+    function getPayTokenAddress() public view returns (address) {
         unchecked {
             address dataPointer = _getArgAddress(8);
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
