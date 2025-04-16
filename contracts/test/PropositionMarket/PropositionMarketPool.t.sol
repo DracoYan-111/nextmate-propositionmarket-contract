@@ -5,7 +5,7 @@ import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 
 import {PropositionMarketFactory, FactorySettings, TokenSettings, MarketSettings} from "../../src/PropositionMarket/PropositionMarketFactory.sol";
 import {PropositionMarketToken, ERC20, Ownable} from "../../src/PropositionMarket/PropositionMarketToken.sol";
-import {PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
+import {IPropositionMarketPool,PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
 import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -148,7 +148,7 @@ contract PropositionMarketPoolTest is Test {
             keccak256("testtesttesttest")
         );
 
-        assertEq(PropositionMarketPool(pool).getPayTokenAddress(), address(testTokenAddress));
+        assertEq(address(PropositionMarketPool(pool).getPayTokenAddress()), address(testTokenAddress));
     }
 
     function test_factorySettings() public {
@@ -164,5 +164,21 @@ contract PropositionMarketPoolTest is Test {
 
         assertEq(PropositionMarketPool(pool).getFeeRecipient(), address(initialOwner));
         assertEq(PropositionMarketPool(pool).getPlatformFee(), 10);
+    }
+
+    function test_receivePlatformFee() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            "testtesttesttest",
+            address(testTokenAddress),
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
+
+        PropositionMarketPool(pool).receivePlatformFee(initialOwner);
+        
+        vm.expectRevert(abi.encodeWithSelector(IPropositionMarketPool.InsufficientBalance.selector));
     }
 }

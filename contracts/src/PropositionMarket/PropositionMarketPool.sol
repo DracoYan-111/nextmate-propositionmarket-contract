@@ -4,19 +4,23 @@ pragma solidity ^0.8.23;
 import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 import {CWIA} from "solady/src/utils/legacy/CWIA.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
+import {LibString} from "solady/src/utils/LibString.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
 
 contract PropositionMarketPool is IPropositionMarketPool, CWIA {
     using LibString for *;
 
+    uint256 public totalPlatformFee;
     bool public paused;
-    bool public closed;
 
     modifier onlyManager() {
-        if (getManagerAddress() != msg.sender) {
-            revert OwnableUnauthorizedAccount(msg.sender);
-        }
+        if (getManagerAddress() != msg.sender) revert OwnableUnauthorizedAccount(msg.sender);
+        _;
+    }
+    modifier whenNotPaused() {
+        if (!paused) revert EnforcedPause();
         _;
     }
 
@@ -54,11 +58,11 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         }
     }
 
-    function getPayTokenAddress() public view returns (address) {
+    function getPayTokenAddress() public view returns (IERC20) {
         unchecked {
             address dataPointer = _getArgAddress(8);
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
-            return fullList[fullList.length - 1];
+            return IERC20(fullList[fullList.length - 1]);
         }
     }
 
@@ -74,5 +78,16 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
     function getFeeRecipient() external view returns (address) {
         return IPropositionMarketFactory(getFactoryAddress()).getFeeRecipient();
+    }
+
+    function receivePlatformFee(address receiver) external onlyManager {
+        if (totalPlatformFee == 0) revert InsufficientBalance();
+        totalPlatformFee = 0;
+        getPayTokenAddress().transfer(receiver, totalPlatformFee);
+    }
+
+    function pausedPool() external onlyManager {
+        if (paused) revert EnforcedPause();
+        emit Paused(paused = !paused);
     }
 }
