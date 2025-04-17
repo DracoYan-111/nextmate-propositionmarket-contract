@@ -130,11 +130,41 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         (tokenAmount, avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount);
     }
 
-    function buyOption(IPropositionMarketToken supplyToken, uint256 supplyTokenAmount, uint256 timestamp) external {
-        if (timestamp < block.timestamp) {}
-        IPropositionMarketToken(supplyToken).mint(msg.sender, 100 ether);
-        getPayTokenAddress().transferFrom(msg.sender, address(this), 1 ether);
-        if (supplyTokenAmount < 100 ether) {}
+    function buy(
+        IPropositionMarketToken token,
+        uint256 tokenAmount,
+        uint256 expireTimestamp
+    ) external returns (uint256) {
+        if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
+
+        address[] memory optionList = getOptionList();
+
+        uint256 supplyIndex = 0;
+        uint256 supplyOther = 0;
+        for (uint256 i; i < optionList.length; ++i) {
+            if (optionList[i] == address(token)) {
+                supplyIndex = i;
+                continue;
+            }
+            supplyOther += IPropositionMarketToken(optionList[i]).totalSupply();
+        }
+
+        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getSpotPrice(supplyOther);
+
+        uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
+
+        uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
+        totalPlatformFee += platformFee;
+
+        uint256 usdtNetAmount = usdtAmount.rawAdd(platformFee);
+
+        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
+
+        token.mint(msg.sender, tokenAmount);
+
+        emit BuyToken(msg.sender, tokenAmount);
+
+        return tokenAmount;
     }
 
     function buy(
@@ -148,8 +178,8 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
         address[] memory optionList = getOptionList();
 
-        uint256 supplyIndex;
-        uint256 supplyOther;
+        uint256 supplyIndex = 0;
+        uint256 supplyOther = 0;
         for (uint256 i; i < optionList.length; ++i) {
             if (optionList[i] == address(token)) {
                 supplyIndex = i;
@@ -187,8 +217,8 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
         address[] memory optionList = getOptionList();
 
-        uint256 supplyIndex;
-        uint256 supplyOther;
+        uint256 supplyIndex = 0;
+        uint256 supplyOther = 0;
         for (uint256 i; i < optionList.length; ++i) {
             if (optionList[i] == address(token)) {
                 supplyIndex = i;
@@ -210,8 +240,8 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
         if (usdtNetAmount < minUsdtReceived) revert InsufficientOutputAmount(usdtNetAmount, minUsdtReceived);
 
-        if (getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
-        
+        if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
+
         emit SellToken(msg.sender, tokenAmount);
 
         return usdtNetAmount;
@@ -220,7 +250,8 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
     function receivePlatformFee(address receiver) external onlyManager {
         if (totalPlatformFee == 0) revert InsufficientBalance();
         totalPlatformFee = 0;
-        getPayTokenAddress().transfer(receiver, totalPlatformFee);
+
+        if (!getPayTokenAddress().transfer(receiver, totalPlatformFee)) revert PaymentFailed();
     }
 
     function pausedPool() external onlyManager {

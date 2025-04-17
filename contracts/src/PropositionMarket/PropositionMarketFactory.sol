@@ -205,7 +205,7 @@ contract PropositionMarketFactory is
         unchecked {
             return (
                 abi.encodePacked(args.owner, args.name.toSmallString(), args.symbol.toSmallString()),
-                keccak256(abi.encodePacked(args.owner, args.name, args.symbol))
+                keccak256(abi.encode(args.owner, args.name, args.symbol))
             );
         }
     }

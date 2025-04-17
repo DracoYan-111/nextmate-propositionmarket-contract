@@ -254,34 +254,62 @@ contract PropositionMarketPoolTest is Test {
         testTokenAddress.mint(initialOwner, 100 ether);
         testTokenAddress.approve(pool, 100 ether);
 
-        // IPropositionMarketToken token,
-        // uint256 tokenAmount, // 估值 10 Token 100
-        // uint256 usdtAmount, // 10
-        // uint256 minTokenRecived,
-        // uint256 expireTimestamp
         address[] memory tokenAddressList = PropositionMarketPool(pool).getOptionList();
         console.logUint(
-            PropositionMarketPool(pool).buy((IPropositionMarketToken(tokenAddressList[0])), 0, 1 ether, 0, 0)
+            PropositionMarketPool(pool).buy(
+                (IPropositionMarketToken(tokenAddressList[0])),
+                0,
+                1 ether,
+                0,
+                block.timestamp + 3600
+            )
         );
 
         console.logUint(
-            PropositionMarketPool(pool).buy((IPropositionMarketToken(tokenAddressList[0])), 0, 1 ether, 0, 0)
+            PropositionMarketPool(pool).buy(
+                (IPropositionMarketToken(tokenAddressList[0])),
+                0,
+                1 ether,
+                0,
+                block.timestamp + 3600
+            )
         );
 
         console.logUint(
-            PropositionMarketPool(pool).buy((IPropositionMarketToken(tokenAddressList[0])), 0, 1 ether, 0, 0)
+            PropositionMarketPool(pool).buy(
+                (IPropositionMarketToken(tokenAddressList[0])),
+                0,
+                1 ether,
+                0,
+                block.timestamp + 3600
+            )
         );
 
         console.logUint(
-            PropositionMarketPool(pool).sell((IPropositionMarketToken(tokenAddressList[0])), 9000000000000000000, 0, 0)
+            PropositionMarketPool(pool).sell(
+                (IPropositionMarketToken(tokenAddressList[0])),
+                9000000000000000000,
+                0,
+                block.timestamp + 3600
+            )
         );
 
         console.logUint(
-            PropositionMarketPool(pool).sell((IPropositionMarketToken(tokenAddressList[0])), 7262766425400887769, 0, 0)
+            PropositionMarketPool(pool).sell(
+                (IPropositionMarketToken(tokenAddressList[0])),
+                7262766425400887769,
+                0,
+                block.timestamp + 3600
+            )
         );
 
         console.logUint(
-            PropositionMarketPool(pool).sell((IPropositionMarketToken(tokenAddressList[0])), 6609575533692158569, 0, 0)
+            PropositionMarketPool(pool).sell(
+                (IPropositionMarketToken(tokenAddressList[0])),
+                6609575533692158569,
+                0,
+                block.timestamp + 3600
+            )
         );
     }
     // function test_buyOption() public {
