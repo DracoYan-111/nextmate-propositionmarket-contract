@@ -133,27 +133,28 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         if (supplyTokenAmount < 100 ether) {}
     }
 
-    function buyOption(
-        IPropositionMarketToken supplyToken,
-        uint256 usdtAmount,
-        uint256 supplyTokenMinAmount,
-        uint256 timestamp
+    function buy(
+        IPropositionMarketToken token,
+        uint256 tokenAmount, // 估值 10 Token 100
+        uint256 usdtAmount, // 10
+        uint256 minTokenRecived,
+        uint256 expireTimestamp
     ) external {
-        if (timestamp < block.timestamp) {}
-        IPropositionMarketToken(supplyToken).mint(msg.sender, 100 ether);
+        if (expireTimestamp < block.timestamp) {}
+        IPropositionMarketToken(token).mint(msg.sender, 1 ether);
         getPayTokenAddress().transferFrom(msg.sender, address(this), usdtAmount);
-        if (supplyTokenMinAmount < 100 ether) {}
+        if (minTokenRecived < tokenAmount) {}
     }
 
-    function sellOption(
-        IPropositionMarketToken supplyToken,
-        uint256 supplyTokenAmount,
-        uint256 usdtMinAmount,
-        uint256 timestamp
+    function sell(
+        IPropositionMarketToken token,
+        uint256 tokenAmount,
+        uint256 minUsdtReceived,
+        uint256 expireTimestamp
     ) external {
-        if (timestamp < block.timestamp) {}
-        IPropositionMarketToken(supplyToken).burn(msg.sender, supplyTokenAmount);
-        getPayTokenAddress().transfer(msg.sender, usdtMinAmount);
+        if (expireTimestamp < block.timestamp) {}
+        IPropositionMarketToken(token).burn(msg.sender, tokenAmount);
+        getPayTokenAddress().transfer(msg.sender, minUsdtReceived);
     }
 
     function receivePlatformFee(address receiver) external onlyManager {

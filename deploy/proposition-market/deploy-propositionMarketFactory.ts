@@ -30,6 +30,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     from: deployer,
     args: [],
     log: true,
+    libraries: {
+      "Price":"0xfB022A5d8CC2B5a4F2a1723AD30Bb08F68860da0",
+    }
   });
 
   const tokenContract = await deploy('PropositionMarketToken', {

@@ -4711,6 +4711,7 @@ pragma solidity ^0.8.23;
 
 
 
+// TODO:增加pool版本
 contract PropositionMarketPool is IPropositionMarketPool, CWIA {
     using Price for *;
     using LibString for *;
@@ -4782,6 +4783,53 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
     function getFeeRecipient() external view returns (address) {
         return IPropositionMarketFactory(getFactoryAddress()).getFeeRecipient();
+    }
+
+    function _getSupplies(address token) internal view returns (uint256 supply, uint256 supplyOther) {
+        supply = IERC20(token).totalSupply();
+        address[] memory optionList = getOptionList();
+        for (uint256 i = 0; i < optionList.length; i++) {
+            if (optionList[i] != token) {
+                supplyOther += IERC20(optionList[i]).totalSupply();
+            }
+        }
+    }
+
+    function getSpotPrice(address token) public view returns (uint256) {
+        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
+        return Price.getSpotPrice(supply, supplyOther);
+    }
+
+    function calculateSpotPrice(uint256 supply, uint256 supplyOther) external pure returns (uint256) {
+        return Price.getSpotPrice(supply, supplyOther);
+    }
+
+    function getExecutionPrice(address token, int256 amountChanged) public view returns (uint256) {
+        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
+        return Price.getExecutionPrice(supply, supplyOther, amountChanged);
+    }
+
+    function calculateExecutionPrice(
+        uint256 supply,
+        uint256 supplyOther,
+        int256 amountChanged
+    ) external pure returns (uint256) {
+        return Price.getExecutionPrice(supply, supplyOther, amountChanged);
+    }
+
+    function getApproximatePrice(
+        address token,
+        uint256 usdtAmount
+    ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
+        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
+        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount);
+    }
+
+    function buyOption(IPropositionMarketToken supplyToken, uint256 supplyTokenAmount, uint256 timestamp) external {
+        if (timestamp < block.timestamp) {}
+        IPropositionMarketToken(supplyToken).mint(msg.sender, 100 ether);
+        getPayTokenAddress().transferFrom(msg.sender, address(this), 1 ether);
+        if (supplyTokenAmount < 100 ether) {}
     }
 
     function buyOption(
