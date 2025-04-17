@@ -16,6 +16,7 @@
   "fail_on": "none",
   "filter_paths": "contracts/lib|contracts/test|contracts/src/Create2DeployerLocal.sol|@openzeppelin|hardhat/console.sol|xdeployer",
   "solc_remaps": [
+    "price/=contracts/lib/price/",
     "solady/=contracts/lib/solady/",
     "forge-std/=contracts/lib/forge-std/",
     "@openzeppelin/=node_modules/@openzeppelin/"

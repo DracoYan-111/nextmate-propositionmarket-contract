@@ -47,6 +47,7 @@ contract PropositionMarketFactory is
 
     /// @custom:storage-location erc7201:PropositionMarketFactoryStorage
     struct PropositionMarketFactoryStorage {
+        string version;
         address implementation;
         address tokenImplementation;
         FactorySettings factorySettings;
@@ -65,6 +66,7 @@ contract PropositionMarketFactory is
     ) external initializer {
         PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
 
+        $.version = "1.0.0";
         $.implementation = _implementation;
         $.tokenImplementation = _tokenImplementation;
         $.factorySettings = _factorySettings;
@@ -91,6 +93,18 @@ contract PropositionMarketFactory is
 
     function setFeeRecipient(address newFeeRecipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _getPropositionMarketFactoryStorage().factorySettings.feeRecipient = newFeeRecipient;
+    }
+
+    function setImplementation(address newImplementation) external onlyRole(UPGRADER_ROLE) {
+        _getPropositionMarketFactoryStorage().implementation = newImplementation;
+    }
+
+    function setTokenImplementation(address newTokenImplementation) external onlyRole(UPGRADER_ROLE) {
+        _getPropositionMarketFactoryStorage().tokenImplementation = newTokenImplementation;
+    }
+
+    function setImplementationVersion(string calldata version) external onlyRole(UPGRADER_ROLE) {
+        _getPropositionMarketFactoryStorage().version = version;
     }
 
     function createContracts(
@@ -202,7 +216,13 @@ contract PropositionMarketFactory is
         string calldata poolTitle
     ) internal view virtual returns (bytes memory) {
         unchecked {
-            return abi.encodePacked(abi.encodePacked(uint64(length)), dataPointer, poolTitle.toSmallString());
+            return
+                abi.encodePacked(
+                    abi.encodePacked(uint64(length)),
+                    dataPointer,
+                    poolTitle.toSmallString(),
+                    _getPropositionMarketFactoryStorage().version.toSmallString()
+                );
         }
     }
 
@@ -241,6 +261,18 @@ contract PropositionMarketFactory is
 
     function getFeeRecipient() external view returns (address) {
         return _getPropositionMarketFactoryStorage().factorySettings.feeRecipient;
+    }
+
+    function getImplementation() external view returns (address) {
+        return _getPropositionMarketFactoryStorage().implementation;
+    }
+
+    function getTokenImplementation() external view returns (address) {
+        return _getPropositionMarketFactoryStorage().tokenImplementation;
+    }
+
+    function getPoolVersion() external view returns (string memory) {
+        return _getPropositionMarketFactoryStorage().version;
     }
 
     /**

@@ -226,6 +226,19 @@ contract PropositionMarketPoolTest is Test {
         PropositionMarketPool(pool).pausedPool();
     }
 
+    function test_getPoolVersion() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            "testtesttesttest",
+            address(testTokenAddress),
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
+
+        assertEq(PropositionMarketPool(pool).getPoolVersion(), propositionMarketFactory.getPoolVersion());
+    }
     // function test_buyOption() public {
     //     vm.startPrank(initialOwner, initialOwner);
 

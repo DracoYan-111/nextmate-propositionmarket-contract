@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+import {Price} from "price/src/Price.sol";
 import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 import {CWIA} from "solady/src/utils/legacy/CWIA.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
-
-import {Price} from "./Price.sol";
-
 import {IPropositionMarketToken, IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
 
 // TODO:增加pool版本
@@ -75,6 +73,12 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
     function getPoolTitle() public pure returns (string memory) {
         unchecked {
             return _getArgBytes32(28).fromSmallString();
+        }
+    }
+
+    function getPoolVersion() public pure returns (string memory) {
+        unchecked {
+            return _getArgBytes32(60).fromSmallString();
         }
     }
 
