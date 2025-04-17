@@ -7,9 +7,9 @@ import {SafeCastLib} from "../../solady/src/utils/SafeCastLib.sol";
 /**
  * @title Price Library
  * @notice Implements the bonding curve price calculations for the prediction market
- * 
+ *
  * The library implements two main price formulas:
- * 
+ *
  * 1. Spot Price Formula:
  *    P(supply) = pBase + supply / (supplyTotal + m) + k * sqrt(supply)
  *    Where:
@@ -18,7 +18,7 @@ import {SafeCastLib} from "../../solady/src/utils/SafeCastLib.sol";
  *    - supplyTotal: Total supply of both tokens (supply + supplyOther)
  *    - m: Adjustment coefficient
  *    - k: Non-linear factor
- * 
+ *
  * 2. Average Price Formula:
  *    avgPrice = [pBase * deltaSupply + (newSupply - supply - c * ln((newSupply + c)/(supply + c))) + (2/3) * k * (newSupply^(3/2) - supply^(3/2))] / deltaSupply
  *    Where:
@@ -38,22 +38,21 @@ library Price {
 
     /// @notice Base price of the token (18 decimals)
     uint256 public constant pBase = 0.1 ether;
-    
+
     /// @notice Adjustment coefficient to control the impact of total supply (18 decimals)
     uint256 public constant m = 1000 ether;
-    
+
     /// @notice Non-linear factor for the square root term (18 decimals)
     uint256 public constant k = 0.005 ether;
-    
+
     /// @notice Conversion factor from token to USDT decimals
-    uint256 public constant TOKEN_TO_USDT = 1e12; // 18 - 6 = 12
+    /// uint256 public constant TOKEN_TO_USDT = 1e12; // 18 - 6 = 12
 
     /// @notice Maximum number of iterations for the binary search
     uint256 public constant MAX_ITERATIONS = 20;
 
     /// @notice Approximation precision for the binary search
     uint256 public constant APPROXIMATION_PRECISION = 1e3;
-
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       CUSTOM ERRORS                        */
@@ -76,15 +75,15 @@ library Price {
     function getSpotPrice(uint256 supply, uint256 supplyOther) public pure returns (uint256) {
         uint256 supplyTotal = supply + supplyOther;
         uint256 denominator = supplyTotal + m;
-        
+
         // Calculate linear term: supply / (supplyTotal + m)
         uint256 linearTerm = supply.divWad(denominator);
-        
+
         // Calculate square root term: k * sqrt(supply)
         uint256 sqrtTerm = k.mulWad(supply.sqrtWad());
-        
+
         uint256 price = pBase + linearTerm + sqrtTerm;
-        return price / TOKEN_TO_USDT;
+        return price; /// TOKEN_TO_USDT;
     }
 
     /**
@@ -95,11 +94,7 @@ library Price {
      * @return price The calculated average price in USDT (6 decimals)
      * @dev Implements the integral formula for average price calculation
      */
-    function getExecutionPrice(
-        uint256 supply,
-        uint256 supplyOther,
-        int256 deltaSupply
-    ) public pure returns (uint256) {
+    function getExecutionPrice(uint256 supply, uint256 supplyOther, int256 deltaSupply) public pure returns (uint256) {
         // condition check
         if (deltaSupply == 0) {
             revert ZeroSupplyChange();
@@ -110,30 +105,29 @@ library Price {
 
         uint256 newSupply = deltaSupply > 0 ? supply + deltaSupply.toUint256() : supply - (-deltaSupply).toUint256();
         uint256 c = supplyOther + m;
-        
+
         // Calculate ln((newSupply + c)/(supply + c))
         uint256 ratio = (newSupply + c).divWad(supply + c);
-        
+
         int256 lnTerm = ratio.toInt256().lnWad();
-        
+
         // Calculate integral term: newSupply - supply - c * ln((newSupply + c)/(supply + c))
         int256 integralTerm = newSupply.toInt256() - supply.toInt256() - c.toInt256().sMulWad(lnTerm);
-        
+
         // Calculate square root integral term: (2/3) * k * (newSupply^(3/2) - supply^(3/2))
         int256 sqrtIntegral = (2 * k).toInt256().sMulWad(
             (newSupply.sqrtWad().mulWad(newSupply).toInt256() - supply.sqrtWad().mulWad(supply).toInt256()) / 3
         );
-        
+
         // Calculate final average price
         int256 price = (pBase.toInt256().sMulWad(deltaSupply) + integralTerm + sqrtIntegral).sDivWad(deltaSupply);
         if (price < 0) {
             revert NegativePrice(price);
         }
-        
-        // Convert final price from 18 decimals to 6 decimals USDT
-        return price.toUint256() / TOKEN_TO_USDT;
-    }
 
+        // Convert final price from 18 decimals to 6 decimals USDT
+        return price.toUint256(); // / TOKEN_TO_USDT;
+    }
 
     /**
      * @notice 计算给定USDT数量可以购买的token数量和平均价格
@@ -152,29 +146,29 @@ library Price {
         // 计算新的供应量 (买入情况，只会增加)
         uint256 spotPrice = getSpotPrice(supply, supplyOther);
         uint256 newSupply = supply + usdtAmount.divWad(spotPrice);
-        
+
         // 设置二分法的上下界（基于当前价格和新价格）
         // 买入情况，价格会上升
         uint256 upperBound = newSupply;
         uint256 lowerBound = supply;
-        
+
         // 设置精度要求 1/1000
         int256 precision = (usdtAmount / APPROXIMATION_PRECISION).toInt256();
-        
+
         // 添加循环次数限制
         uint iterations = 0;
-        
+
         // 进行二分查找
         while (iterations < MAX_ITERATIONS) {
             uint256 mid = (lowerBound + upperBound) / 2;
-            
+
             // 计算mid数量token的平均价格
             uint256 price = getExecutionPrice(supply, supplyOther, mid.toInt256());
-            
+
             // 计算总价值（USDT，6位小数）
             uint256 totalValue = price.mulWad(mid - supply);
             int256 usdtDiff = usdtAmount.toInt256() - totalValue.toInt256();
-            
+
             if (totalValue < usdtAmount) {
                 lowerBound = mid;
             } else if (totalValue > usdtAmount) {
@@ -187,11 +181,11 @@ library Price {
             if (usdtDiff > 0 && usdtDiff <= precision) {
                 return (mid - supply, price);
             }
-            
+
             // 增加迭代计数
             iterations++;
         }
-    
+
         revert ApproximationFailed();
     }
 }

@@ -141,13 +141,40 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         IPropositionMarketToken token,
         uint256 tokenAmount, // 估值 10 Token 100
         uint256 usdtAmount, // 10
-        uint256 minTokenRecived,
+        uint256 minTokenReceived,
         uint256 expireTimestamp
-    ) external {
-        if (expireTimestamp < block.timestamp) {}
-        IPropositionMarketToken(token).mint(msg.sender, 1 ether);
-        getPayTokenAddress().transferFrom(msg.sender, address(this), usdtAmount);
-        if (minTokenRecived < tokenAmount) {}
+    ) external returns (uint256) {
+        if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
+
+        address[] memory optionList = getOptionList();
+
+        uint256 supplyIndex;
+        uint256 supplyOther;
+        for (uint256 i; i < optionList.length; ++i) {
+            if (optionList[i] == address(token)) {
+                supplyIndex = i;
+                continue;
+            }
+            supplyOther += IPropositionMarketToken(optionList[i]).totalSupply();
+        }
+
+        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtAmount)) revert PaymentFailed();
+
+        uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
+        totalPlatformFee += platformFee;
+
+        uint256 usdtNetAmount = usdtAmount.rawSub(platformFee);
+
+        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getSpotPrice(supplyOther);
+
+        uint256 tokenNetAmount = usdtNetAmount.divWad(tokenPrice);
+
+        if (tokenNetAmount < minTokenReceived) revert InsufficientOutputAmount(tokenNetAmount, minTokenReceived);
+
+        token.mint(msg.sender, tokenNetAmount);
+
+        emit BuyToken(msg.sender, tokenNetAmount);
+        return tokenNetAmount;
     }
 
     function sell(
@@ -155,10 +182,39 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         uint256 tokenAmount,
         uint256 minUsdtReceived,
         uint256 expireTimestamp
-    ) external {
-        if (expireTimestamp < block.timestamp) {}
-        IPropositionMarketToken(token).burn(msg.sender, tokenAmount);
-        getPayTokenAddress().transfer(msg.sender, minUsdtReceived);
+    ) external returns (uint256) {
+        if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
+
+        address[] memory optionList = getOptionList();
+
+        uint256 supplyIndex;
+        uint256 supplyOther;
+        for (uint256 i; i < optionList.length; ++i) {
+            if (optionList[i] == address(token)) {
+                supplyIndex = i;
+                continue;
+            }
+            supplyOther += IPropositionMarketToken(optionList[i]).totalSupply();
+        }
+
+        token.burn(msg.sender, tokenAmount);
+
+        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getSpotPrice(supplyOther);
+
+        uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
+
+        uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
+        totalPlatformFee += platformFee;
+
+        uint256 usdtNetAmount = usdtAmount.rawSub(platformFee);
+
+        if (usdtNetAmount < minUsdtReceived) revert InsufficientOutputAmount(usdtNetAmount, minUsdtReceived);
+
+        if (getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
+        
+        emit SellToken(msg.sender, tokenAmount);
+
+        return usdtNetAmount;
     }
 
     function receivePlatformFee(address receiver) external onlyManager {

@@ -39,7 +39,7 @@ contract PropositionMarketPoolTest is Test {
                 initialOwner,
                 propositionMarketPool,
                 tokenAddress,
-                FactorySettings({feeRecipient: initialOwner, platformFee: 10})
+                FactorySettings({feeRecipient: initialOwner, platformFee: 0.1 ether})
             )
         );
         address proxy = address(new ERC1967Proxy(propositionMarketFactoryAddress, data));
@@ -163,7 +163,7 @@ contract PropositionMarketPoolTest is Test {
         );
 
         assertEq(PropositionMarketPool(pool).getFeeRecipient(), address(initialOwner));
-        assertEq(PropositionMarketPool(pool).getPlatformFee(), 10);
+        assertEq(PropositionMarketPool(pool).getPlatformFee(), 0.1 ether);
     }
 
     function test_receivePlatformFee() public {
@@ -238,6 +238,51 @@ contract PropositionMarketPoolTest is Test {
         );
 
         assertEq(PropositionMarketPool(pool).getPoolVersion(), propositionMarketFactory.getPoolVersion());
+    }
+
+    function test_price() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            "testtesttesttest",
+            address(testTokenAddress),
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
+
+        testTokenAddress.mint(initialOwner, 100 ether);
+        testTokenAddress.approve(pool, 100 ether);
+
+        // IPropositionMarketToken token,
+        // uint256 tokenAmount, // 估值 10 Token 100
+        // uint256 usdtAmount, // 10
+        // uint256 minTokenRecived,
+        // uint256 expireTimestamp
+        address[] memory tokenAddressList = PropositionMarketPool(pool).getOptionList();
+        console.logUint(
+            PropositionMarketPool(pool).buy((IPropositionMarketToken(tokenAddressList[0])), 0, 1 ether, 0, 0)
+        );
+
+        console.logUint(
+            PropositionMarketPool(pool).buy((IPropositionMarketToken(tokenAddressList[0])), 0, 1 ether, 0, 0)
+        );
+
+        console.logUint(
+            PropositionMarketPool(pool).buy((IPropositionMarketToken(tokenAddressList[0])), 0, 1 ether, 0, 0)
+        );
+
+        console.logUint(
+            PropositionMarketPool(pool).sell((IPropositionMarketToken(tokenAddressList[0])), 9000000000000000000, 0, 0)
+        );
+
+        console.logUint(
+            PropositionMarketPool(pool).sell((IPropositionMarketToken(tokenAddressList[0])), 7262766425400887769, 0, 0)
+        );
+
+        console.logUint(
+            PropositionMarketPool(pool).sell((IPropositionMarketToken(tokenAddressList[0])), 6609575533692158569, 0, 0)
+        );
     }
     // function test_buyOption() public {
     //     vm.startPrank(initialOwner, initialOwner);
