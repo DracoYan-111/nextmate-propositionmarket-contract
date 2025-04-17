@@ -22,7 +22,7 @@ struct TokenSettings {
 
 struct FactorySettings {
     address feeRecipient;
-    uint48 platformFee;
+    uint256 platformFee;
 }
 
 /// @custom:security-contact draco@nextmate.ai

@@ -6,11 +6,16 @@ import {CWIA} from "solady/src/utils/legacy/CWIA.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
-import {IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
+import {Price} from "./Price.sol";
+
+import {IPropositionMarketToken, IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
 
 contract PropositionMarketPool is IPropositionMarketPool, CWIA {
+    using Price for *;
     using LibString for *;
+    using FixedPointMathLib for *;
 
     uint256 public totalPlatformFee;
     bool public paused;
@@ -28,7 +33,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         return _getArgUint64(0);
     }
 
-    function getOptionList() external view returns (address[] memory) {
+    function getOptionList() public view returns (address[] memory) {
         unchecked {
             address dataPointer = _getArgAddress(8);
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
@@ -72,13 +77,44 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         }
     }
 
-    function getPlatformFee() external view returns (uint256) {
+    function getPlatformFee() public view returns (uint256) {
         return IPropositionMarketFactory(getFactoryAddress()).getPlatformFee();
     }
 
     function getFeeRecipient() external view returns (address) {
         return IPropositionMarketFactory(getFactoryAddress()).getFeeRecipient();
     }
+
+    function buyOption(
+        IPropositionMarketToken supplyToken,
+        uint256 usdtAmount,
+        uint256 supplyTokenMinAmount
+    ) external returns (uint256) {
+        address[] memory optionList = getOptionList();
+        IPropositionMarketToken leftOption = IPropositionMarketToken(optionList[0]);
+        IPropositionMarketToken rightOption = IPropositionMarketToken(optionList[1]);
+        uint256 leftOptionTotalSupply = leftOption.totalSupply();
+        uint256 rightOptionTotalSupply = rightOption.totalSupply();
+
+        uint256 tokenPrice;
+
+        if (supplyToken == leftOption) {
+            tokenPrice = leftOptionTotalSupply.getSpotPrice(rightOptionTotalSupply);
+        } else {
+            tokenPrice = rightOptionTotalSupply.getSpotPrice(leftOptionTotalSupply);
+        }
+
+        if (getPayTokenAddress().transferFrom(msg.sender, address(this), usdtAmount)) {
+            uint256 usdtPlatformFee = usdtAmount.mulWad(getPlatformFee());
+            totalPlatformFee += usdtPlatformFee;
+            uint256 usdtNetAmount = usdtAmount.rawSub(usdtPlatformFee);
+            
+        }
+
+        return tokenPrice;
+    }
+
+    function sellOption() external {}
 
     function receivePlatformFee(address receiver) external onlyManager {
         if (totalPlatformFee == 0) revert InsufficientBalance();
