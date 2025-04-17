@@ -5,7 +5,7 @@ import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 
 import {PropositionMarketFactory, FactorySettings, TokenSettings, MarketSettings} from "../../src/PropositionMarket/PropositionMarketFactory.sol";
 import {PropositionMarketToken, ERC20, Ownable} from "../../src/PropositionMarket/PropositionMarketToken.sol";
-import {IPropositionMarketPool, PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
+import {IPropositionMarketToken, IPropositionMarketPool, PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
 import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -225,4 +225,38 @@ contract PropositionMarketPoolTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IPropositionMarketPool.EnforcedPause.selector));
         PropositionMarketPool(pool).pausedPool();
     }
+
+    function test_getPoolVersion() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address pool = propositionMarketFactory.createContracts(
+            nameAndSymbolList,
+            "testtesttesttest",
+            address(testTokenAddress),
+            initialOwner,
+            keccak256("testtesttesttest")
+        );
+
+        assertEq(PropositionMarketPool(pool).getPoolVersion(), propositionMarketFactory.getPoolVersion());
+    }
+    // function test_buyOption() public {
+    //     vm.startPrank(initialOwner, initialOwner);
+
+    //     address pool = propositionMarketFactory.createContracts(
+    //         nameAndSymbolList,
+    //         "testtesttesttest",
+    //         address(testTokenAddress),
+    //         initialOwner,
+    //         keccak256("testtesttesttest")
+    //     );
+
+    //     address[] memory tokenAddressList = PropositionMarketPool(pool).getOptionList();
+    //             console.logUint(PropositionMarketPool(pool).buyOption(IPropositionMarketToken(tokenAddressList[0]), 0, 0));
+
+    //     vm.startPrank(pool, pool);
+
+    //     PropositionMarketToken(tokenAddressList[0]).mint(initialOwner, 1 ether);
+
+    //     console.logUint(PropositionMarketPool(pool).buyOption(IPropositionMarketToken(tokenAddressList[0]), 0, 0));
+    // }
 }
