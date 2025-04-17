@@ -88,33 +88,25 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
     function buyOption(
         IPropositionMarketToken supplyToken,
         uint256 usdtAmount,
-        uint256 supplyTokenMinAmount
-    ) external returns (uint256) {
-        address[] memory optionList = getOptionList();
-        IPropositionMarketToken leftOption = IPropositionMarketToken(optionList[0]);
-        IPropositionMarketToken rightOption = IPropositionMarketToken(optionList[1]);
-        uint256 leftOptionTotalSupply = leftOption.totalSupply();
-        uint256 rightOptionTotalSupply = rightOption.totalSupply();
-
-        uint256 tokenPrice;
-
-        if (supplyToken == leftOption) {
-            tokenPrice = leftOptionTotalSupply.getSpotPrice(rightOptionTotalSupply);
-        } else {
-            tokenPrice = rightOptionTotalSupply.getSpotPrice(leftOptionTotalSupply);
-        }
-
-        if (getPayTokenAddress().transferFrom(msg.sender, address(this), usdtAmount)) {
-            uint256 usdtPlatformFee = usdtAmount.mulWad(getPlatformFee());
-            totalPlatformFee += usdtPlatformFee;
-            uint256 usdtNetAmount = usdtAmount.rawSub(usdtPlatformFee);
-            
-        }
-
-        return tokenPrice;
+        uint256 supplyTokenMinAmount,
+        uint256 timestamp
+    ) external {
+        if (timestamp < block.timestamp) {}
+        IPropositionMarketToken(supplyToken).mint(msg.sender, 100 ether);
+        getPayTokenAddress().transferFrom(msg.sender, address(this), usdtAmount);
+        if (supplyTokenMinAmount < 100 ether) {}
     }
 
-    function sellOption() external {}
+    function sellOption(
+        IPropositionMarketToken supplyToken,
+        uint256 supplyTokenAmount,
+        uint256 usdtMinAmount,
+        uint256 timestamp
+    ) external {
+        if (timestamp < block.timestamp) {}
+        IPropositionMarketToken(supplyToken).burn(msg.sender, supplyTokenAmount);
+        getPayTokenAddress().transfer(msg.sender, usdtMinAmount);
+    }
 
     function receivePlatformFee(address receiver) external onlyManager {
         if (totalPlatformFee == 0) revert InsufficientBalance();

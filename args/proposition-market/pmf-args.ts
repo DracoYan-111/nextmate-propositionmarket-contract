@@ -1,10 +1,10 @@
 const data = [
-  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "0x3e8b6e286f78b13c35e11d567935c3afeecb9003",
+  "0x0000000000000000000000000000000000000000",
+  "0x0000000000000000000000000000000000000000",
   {
-    feeRecipient: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    platformFee: 0
+    feeRecipient: "0x3e8b6e286f78b13c35e11d567935c3afeecb9003",
+    platformFee: "10"
   }
 ];
 export { data };

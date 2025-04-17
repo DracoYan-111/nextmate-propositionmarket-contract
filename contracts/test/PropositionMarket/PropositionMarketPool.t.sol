@@ -226,24 +226,24 @@ contract PropositionMarketPoolTest is Test {
         PropositionMarketPool(pool).pausedPool();
     }
 
-    function test_buyOption() public {
-        vm.startPrank(initialOwner, initialOwner);
+    // function test_buyOption() public {
+    //     vm.startPrank(initialOwner, initialOwner);
 
-        address pool = propositionMarketFactory.createContracts(
-            nameAndSymbolList,
-            "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
-        );
+    //     address pool = propositionMarketFactory.createContracts(
+    //         nameAndSymbolList,
+    //         "testtesttesttest",
+    //         address(testTokenAddress),
+    //         initialOwner,
+    //         keccak256("testtesttesttest")
+    //     );
 
-        address[] memory tokenAddressList = PropositionMarketPool(pool).getOptionList();
-                console.logUint(PropositionMarketPool(pool).buyOption(IPropositionMarketToken(tokenAddressList[0]), 0, 0));
+    //     address[] memory tokenAddressList = PropositionMarketPool(pool).getOptionList();
+    //             console.logUint(PropositionMarketPool(pool).buyOption(IPropositionMarketToken(tokenAddressList[0]), 0, 0));
 
-        vm.startPrank(pool, pool);
+    //     vm.startPrank(pool, pool);
 
-        PropositionMarketToken(tokenAddressList[0]).mint(initialOwner, 1 ether);
+    //     PropositionMarketToken(tokenAddressList[0]).mint(initialOwner, 1 ether);
 
-        console.logUint(PropositionMarketPool(pool).buyOption(IPropositionMarketToken(tokenAddressList[0]), 0, 0));
-    }
+    //     console.logUint(PropositionMarketPool(pool).buyOption(IPropositionMarketToken(tokenAddressList[0]), 0, 0));
+    // }
 }

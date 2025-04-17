@@ -42,6 +42,7 @@
     "deploy:hh": "npx hardhat --network hardhat deploy --tags",
     "deploy:localhost": "npx hardhat --network localhost deploy --tags",
     "deploy:tenderly": "npx hardhat --network tenderly deploy --tags",
+    "deploy:devnet": "npx hardhat --network devnet deploy --tags",
     "deploy:ethMain": "npx hardhat --network ethMain deploy --tags",
     "deploy:bscTestnet": "npx hardhat --network bscTestnet deploy --tags",
     "deploy:bscMain": "npx hardhat --network bscMain deploy --tags",

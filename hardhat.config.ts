@@ -1,30 +1,30 @@
-import { HardhatUserConfig, task } from "hardhat/config";
+import { HardhatUserConfig, task } from 'hardhat/config';
 
-import "@nomicfoundation/hardhat-ethers";
-import "@nomicfoundation/hardhat-verify";
-import "@nomicfoundation/hardhat-ledger";
-import "@nomicfoundation/hardhat-foundry";
-import "@nomicfoundation/hardhat-chai-matchers";
-import "@nomicfoundation/hardhat-ignition-ethers";
-import "@typechain/hardhat";
-import "hardhat-deploy";
+import '@nomicfoundation/hardhat-ethers';
+import '@nomicfoundation/hardhat-verify';
+import '@nomicfoundation/hardhat-ledger';
+import '@nomicfoundation/hardhat-foundry';
+import '@nomicfoundation/hardhat-chai-matchers';
+import '@nomicfoundation/hardhat-ignition-ethers';
+import '@typechain/hardhat';
+import 'hardhat-deploy';
 
-import "xdeployer";
-import "@matterlabs/hardhat-zksync-solc";
-import "@matterlabs/hardhat-zksync-deploy";
-import "@matterlabs/hardhat-zksync-verify";
-import "@matterlabs/hardhat-zksync-ethers";
+import 'xdeployer';
+import '@matterlabs/hardhat-zksync-solc';
+import '@matterlabs/hardhat-zksync-deploy';
+import '@matterlabs/hardhat-zksync-verify';
+import '@matterlabs/hardhat-zksync-ethers';
 // 如果要使用 Truffle Dashboard 模块，请取消注释
 // 您还必须相应地取消注释此文件中后续的 `truffle` 配置
 // import "@truffle/dashboard-hardhat-plugin";
-import "hardhat-gas-reporter";
-import "hardhat-abi-exporter";
-import "solidity-coverage";
-import "hardhat-contract-sizer";
+import 'hardhat-gas-reporter';
+import 'hardhat-abi-exporter';
+import 'solidity-coverage';
+import 'hardhat-contract-sizer';
 // 如果要使用 Hardhat Tenderly 模块，请取消注释
 // 您还必须相应地取消注释此文件中后续的“tenderly”配置
-import "@tenderly/hardhat-tenderly";
-import dotenv from "dotenv";
+import '@tenderly/hardhat-tenderly';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -33,9 +33,9 @@ const forkingUrl = (process.env.FORKING_URL as string) || ethMainnetUrl;
 const account = process.env.ACCOUNT as string;
 const privateKey = [process.env.PRIVATE_KEY as string];
 
-const ledgerAccounts = ["0x8195fa8224c39103f578c9b84f951721df3fa71c"];
+const ledgerAccounts = ['0x8195fa8224c39103f578c9b84f951721df3fa71c'];
 
-task("accounts", "Prints the list of accounts", async (_, hre) => {
+task('accounts', 'Prints the list of accounts', async (_, hre) => {
   const accounts = await hre.ethers.getSigners();
 
   for (const account of accounts) {
@@ -43,53 +43,45 @@ task("accounts", "Prints the list of accounts", async (_, hre) => {
   }
 });
 
-task("evm", "Prints the configured EVM version", async (_, hre) => {
+task('evm', 'Prints the configured EVM version', async (_, hre) => {
   console.log(hre.config.solidity.compilers[0].settings.evmVersion);
 });
 
-task(
-  "balances",
-  "Prints the list of accounts and their balances",
-  async (_, hre) => {
-    const accounts = await hre.ethers.getSigners();
+task('balances', 'Prints the list of accounts and their balances', async (_, hre) => {
+  const accounts = await hre.ethers.getSigners();
 
-    for (const account of accounts) {
-      console.log(
-        account.address +
-          " " +
-          (await hre.ethers.provider.getBalance(account.address)),
-      );
-    }
-  },
-);
+  for (const account of accounts) {
+    console.log(account.address + ' ' + (await hre.ethers.provider.getBalance(account.address)));
+  }
+});
 
 const config: HardhatUserConfig = {
   paths: {
-    sources: "./contracts/src",
+    sources: './contracts/src',
   },
   solidity: {
     // 仅对支持新 `cancun` 操作码的 EVM 网络使用 Solidity 默认版本 `>=0.8.25`:
     // https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/cancun.md
     // 仅对支持操作码 `PUSH0` 的 EVM 网络使用 Solidity 默认版本 `>=0.8.20`
     // 否则，使用版本 `<=0.8.19`
-    version: "0.8.23",
+    version: '0.8.23',
     settings: {
       optimizer: {
         enabled: true,
         runs: 999_999,
       },
-      evmVersion: "paris", // 防止使用“PUSH0”和“cancun”操作码
+      evmVersion: 'paris', // 防止使用“PUSH0”和“cancun”操作码
     },
   },
   zksolc: {
-    version: "1.5.12",
-    compilerSource: "binary",
+    version: '1.5.12',
+    compilerSource: 'binary',
     settings: {
       enableEraVMExtensions: false,
       forceEVMLA: false,
       optimizer: {
         enabled: true,
-        mode: "3",
+        mode: '3',
         fallback_to_optimizing_for_size: false,
       },
     },
@@ -104,9 +96,10 @@ const config: HardhatUserConfig = {
   // },
   namedAccounts: {
     deployer: {
+      devnet: account,
       metis: account,
-      hardhat: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-      localhost: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      hardhat: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      localhost: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
       goerli: account,
       ethMain: account,
       bscTestnet: account,
@@ -117,9 +110,9 @@ const config: HardhatUserConfig = {
     hardhat: {
       initialBaseFeePerGas: 0,
       chainId: 31337,
-      hardfork: "cancun",
+      hardfork: 'cancun',
       accounts: {
-        mnemonic: "test test test test test test test test test test test junk", // 可选自定义
+        mnemonic: 'test test test test test test test test test test test junk', // 可选自定义
       },
       forking: {
         url: forkingUrl,
@@ -134,7 +127,7 @@ const config: HardhatUserConfig = {
       // zksync: true, // Enable ZKsync in the Hardhat local network
     },
     localhost: {
-      url: "http://127.0.0.1:8545",
+      url: 'http://127.0.0.1:8545',
       accounts: privateKey,
     },
     tenderly: {
@@ -144,23 +137,19 @@ const config: HardhatUserConfig = {
     },
     devnet: {
       // Add your own Tenderly DevNet ID
-      url: `https://rpc.vnet.tenderly.co/devnet/${process.env.TENDERLY_DEVNET_ID as string}`,
+      url: `https://virtual.binance.rpc.tenderly.co/${process.env.TENDERLY_DEVNET_ID as string}`,
       accounts: privateKey,
       ledgerAccounts,
     },
     goerli: {
       chainId: 5,
-      url:
-        (process.env.ETH_GOERLI_TESTNET_URL as string) ||
-        "https://rpc.ankr.com/eth_goerli",
+      url: (process.env.ETH_GOERLI_TESTNET_URL as string) || 'https://rpc.ankr.com/eth_goerli',
       accounts: privateKey,
       ledgerAccounts,
     },
     sepolia: {
       chainId: 11155111,
-      url:
-        (process.env.ETH_SEPOLIA_TESTNET_URL as string) ||
-        "https://rpc.sepolia.org",
+      url: (process.env.ETH_SEPOLIA_TESTNET_URL as string) || 'https://rpc.sepolia.org',
       accounts: privateKey,
       ledgerAccounts,
     },
@@ -183,30 +172,31 @@ const config: HardhatUserConfig = {
       ledgerAccounts,
     },
   },
+  tenderly: {
+    username: 'DracoYan', // tenderly 用户名（或组织名称）
+    project: 'project', // 项目名称
+    privateVerification: false, // 如果为 true，则合约将被私下验证，如果为 false，则合约将被公开验证
+  },
   xdeploy: {
     // 将此名称更改为您的主合约的名称
     // 不一定必须与合约文件名匹配
-    contract: "",
+    contract: '',
     // 如果构造函数没有任何输入参数，则更改为“undefined”
-    constructorArgsPath: "",
+    constructorArgsPath: '',
     // 对于每个想要拥有单个合约地址的 EVM 链，盐值必须相同
     // 如果使用相同的代码库进行重新部署，请更改盐值
-    salt:
-      (process.env.XDEPLOY_SALT as string) ||
-      "0x00000000000000000000000000000000",
+    salt: (process.env.XDEPLOY_SALT as string) || '0x00000000000000000000000000000000',
     // 这是你的钱包的私钥
     signer: privateKey,
     // 使用此处指定的网络名称：https://github.com/pcaversaccio/xdeployer#configuration
     // 使用“localhost”或“hardhat”进行本地测试
-    networks: ["hardhat", "sepolia", "optimismSepolia"],
+    networks: ['hardhat', 'sepolia', 'optimismSepolia'],
 
     // 在 `.env` 文件中使用与您选择的 RPC 匹配的 env URL
     rpcUrls: [
-      "hardhat",
-      (process.env.ETH_SEPOLIA_TESTNET_URL as string) ||
-        "https://rpc.sepolia.org",
-      (process.env.OPTIMISM_SEPOLIA_URL as string) ||
-        "https://sepolia.optimism.io",
+      'hardhat',
+      (process.env.ETH_SEPOLIA_TESTNET_URL as string) || 'https://rpc.sepolia.org',
+      (process.env.OPTIMISM_SEPOLIA_URL as string) || 'https://sepolia.optimism.io',
     ],
 
     // 最大限制为 15 * 10 ** 6 或 15,000,000。如果部署失败，请尝试增加此数字
@@ -219,14 +209,14 @@ const config: HardhatUserConfig = {
     disambiguatePaths: false,
     strict: true,
     only: [],
-    except: ["CreateX", "Create2DeployerLocal"],
+    except: ['CreateX', 'Create2DeployerLocal'],
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS as unknown as boolean,
-    currency: "USD",
+    currency: 'USD',
   },
   abiExporter: {
-    path: "./abis",
+    path: './abis',
     runOnCompile: true,
     clear: true,
     flat: false,
@@ -237,8 +227,8 @@ const config: HardhatUserConfig = {
   sourcify: {
     // 默认启用 Sourcify 验证
     enabled: false,
-    apiUrl: "https://sourcify.dev/server",
-    browserUrl: "https://repo.sourcify.dev",
+    apiUrl: 'https://sourcify.dev/server',
+    browserUrl: 'https://repo.sourcify.dev',
   },
   blockscout: {
     // 默认禁用 Blockscout 验证
@@ -266,7 +256,7 @@ const config: HardhatUserConfig = {
     contracts: [
       {
         artifacts:
-          "node_modules/@openzeppelin/upgrades-core/artifacts/@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol/",
+          'node_modules/@openzeppelin/upgrades-core/artifacts/@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol/',
       },
     ],
   },
