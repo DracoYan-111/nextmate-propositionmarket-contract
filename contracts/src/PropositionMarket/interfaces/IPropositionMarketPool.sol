@@ -20,6 +20,8 @@ interface IPropositionMarketFactory {
     function getPlatformFee() external view returns (uint256);
 
     function getFeeRecipient() external view returns (address);
+
+    function emitEventTrade(address token, address trader, int256 tokenAmount, uint256 executionPrice) external;
 }
 
 interface IPropositionMarketToken is IERC20 {

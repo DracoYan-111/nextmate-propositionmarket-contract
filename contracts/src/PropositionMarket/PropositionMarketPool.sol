@@ -188,23 +188,33 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
             supplyOther += IPropositionMarketToken(optionList[i]).totalSupply();
         }
 
-        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtAmount)) revert PaymentFailed();
-
         uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
         totalPlatformFee += platformFee;
 
-        uint256 usdtNetAmount = usdtAmount.rawSub(platformFee);
+        //uint256 usdtNetAmount = usdtAmount.rawSub(platformFee);
 
-        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getSpotPrice(supplyOther);
+        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getExecutionPrice(
+            supplyOther,
+            int256(tokenAmount)
+        );
 
-        uint256 tokenNetAmount = usdtNetAmount.divWad(tokenPrice);
+        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), tokenPrice.mulWad(tokenAmount)))
+            revert PaymentFailed();
 
-        if (tokenNetAmount < minTokenReceived) revert InsufficientOutputAmount(tokenNetAmount, minTokenReceived);
+        //uint256 tokenNetAmount = usdtNetAmount.divWad(tokenPrice);
 
-        token.mint(msg.sender, tokenNetAmount);
+        if (tokenAmount < minTokenReceived) revert InsufficientOutputAmount(tokenAmount, minTokenReceived);
 
-        emit BuyToken(msg.sender, tokenNetAmount);
-        return tokenNetAmount;
+        token.mint(msg.sender, tokenAmount);
+
+        IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
+            address(token),
+            msg.sender,
+            int256(tokenAmount),
+            tokenPrice
+        );
+
+        return tokenAmount;
     }
 
     function sell(
@@ -229,7 +239,10 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
         token.burn(msg.sender, tokenAmount);
 
-        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getSpotPrice(supplyOther);
+        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getExecutionPrice(
+            supplyOther,
+            int256(tokenAmount)
+        );
 
         uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
 
@@ -242,7 +255,12 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
         if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
 
-        emit SellToken(msg.sender, tokenAmount);
+        IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
+            address(token),
+            msg.sender,
+            -int256(tokenAmount),
+            tokenPrice
+        );
 
         return usdtNetAmount;
     }

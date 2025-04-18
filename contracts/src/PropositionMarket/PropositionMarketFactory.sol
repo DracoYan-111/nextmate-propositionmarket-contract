@@ -37,6 +37,7 @@ contract PropositionMarketFactory is
     using LibString for *;
     using SafeTransferLib for *;
 
+    bytes32 public constant POOL_ROLE = keccak256("POOL_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
@@ -282,5 +283,10 @@ contract PropositionMarketFactory is
         assembly {
             $.slot := PropositionMarketFactoryStorageLocation
         }
+    }
+
+    function emitEventTrade(address token, address trader, int256 tokenAmount, uint256 executionPrice) external {
+        //onlyRole(POOL_ROLE){
+        emit trade(msg.sender, token, trader, tokenAmount, executionPrice);
     }
 }
