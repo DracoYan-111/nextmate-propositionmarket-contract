@@ -18,6 +18,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
     uint256 public totalPlatformFee;
     bool public paused;
+    mapping(address => uint256) public optionTvl;
 
     modifier onlyManager() {
         if (getManagerAddress() != msg.sender) revert OwnableUnauthorizedAccount(msg.sender);
@@ -160,6 +161,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
         if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
 
+        optionTvl[optionList[supplyIndex]] += usdtNetAmount;
         token.mint(msg.sender, tokenAmount);
 
         emit BuyToken(msg.sender, tokenAmount);
@@ -200,6 +202,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
 
         if (!getPayTokenAddress().transferFrom(msg.sender, address(this), tokenPrice.mulWad(tokenAmount)))
             revert PaymentFailed();
+        optionTvl[optionList[supplyIndex]] += tokenPrice.mulWad(tokenAmount);
 
         //uint256 tokenNetAmount = usdtNetAmount.divWad(tokenPrice);
 
@@ -254,6 +257,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         if (usdtNetAmount < minUsdtReceived) revert InsufficientOutputAmount(usdtNetAmount, minUsdtReceived);
 
         if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
+        optionTvl[optionList[supplyIndex]] -= usdtNetAmount;
 
         IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
             address(token),
