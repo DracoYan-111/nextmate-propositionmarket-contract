@@ -8,7 +8,7 @@
     "function-max-lines": ["warn", 50],
     "max-line-length": ["warn", 120],
     "payable-fallback": "warn",
-    "reason-string": ["warn", {"maxLength": 64}],
+    "reason-string": ["warn", { "maxLength": 64 }],
     "avoid-low-level-calls": "warn",
     "avoid-tx-origin": "error",
     "check-send-result": "error",
@@ -19,7 +19,7 @@
     "event-name-capwords": "warn",
     "func-name-mixedcase": "warn",
     "modifier-name-mixedcase": "warn",
-    "private-vars-leading-underscore": ["warn", {"strict": false}],
+    "private-vars-leading-underscore": ["warn", { "strict": false }],
     "var-name-mixedcase": "warn",
     "explicit-types": ["warn", "explicit"],
     "ordering": "warn",
@@ -30,6 +30,6 @@
     "no-global-import": "warn",
     "quotes": ["warn", "double"],
     "func-param-name-mixedcase": "warn",
-    "no-console": ["error", {"ignoreTests": true}]
+    "no-console": ["error", { "ignoreTests": true }]
   }
 }

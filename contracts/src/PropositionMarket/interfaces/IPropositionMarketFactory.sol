@@ -6,8 +6,6 @@ interface IPropositionMarketToken {
 }
 
 interface IPropositionMarketFactory {
-    error InvalidInput(string[]);
-
     event createPool(address indexed pool);
     event trade(
         address indexed pool,
@@ -16,4 +14,6 @@ interface IPropositionMarketFactory {
         int256 tokenAmount,
         uint256 executionPrice
     );
+
+    error InvalidInput(string[]);
 }

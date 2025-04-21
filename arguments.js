@@ -3,5 +3,5 @@
 // 另请参阅此处：https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html#complex-arguments
 
 module.exports = [
-  "Hello, Hardhat!", // 示例 Greeter.sol 文件需要一个字符串
+  'Hello, Hardhat!', // 示例 Greeter.sol 文件需要一个字符串
 ];

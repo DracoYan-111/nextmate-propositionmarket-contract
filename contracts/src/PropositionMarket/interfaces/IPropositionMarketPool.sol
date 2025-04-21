@@ -13,7 +13,9 @@ interface IPropositionMarketPool {
     error TimeoutProhibition();
     error InsufficientBalance();
     error OwnableUnauthorizedAccount(address);
-    error InsufficientOutputAmount(uint256, uint256);
+    error SlippageFailed(uint256, uint256);
+    error InvalidToken();
+    error ZeroQuantityError();
 }
 
 interface IPropositionMarketFactory {
@@ -27,5 +29,5 @@ interface IPropositionMarketFactory {
 interface IPropositionMarketToken is IERC20 {
     function mint(address to, uint256 amount) external;
 
-    function burn(address to, uint256 amount) external;
+    function burn(address from, uint256 amount) external;
 }

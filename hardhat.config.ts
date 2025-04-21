@@ -71,6 +71,7 @@ const config: HardhatUserConfig = {
         runs: 999_999,
       },
       evmVersion: 'paris', // 防止使用“PUSH0”和“cancun”操作码
+      viaIR: true,
     },
   },
   zksolc: {
