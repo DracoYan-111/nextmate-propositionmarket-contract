@@ -42,9 +42,9 @@ contract PropositionMarketFactory is
     bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
-    // keccak256(abi.encode(uint256(keccak256("PropositionMarketFactoryStorage")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant PropositionMarketFactoryStorageLocation =
-        0x495976b1de7e08a382aaeed4d579be4f58b6ca6b75742ede148021ba1112c500;
+    // keccak256(abi.encode(uint256(keccak256("PROPOSITION_MARKET_FACTORY_STORAGE")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant PROPOSITION_MARKET_FACTORY_STORAGE =
+        0xca2fe85550dc2df9d90e90f9056a5a27c19809a8536e8712d438bd80180ec500;
 
     /// @custom:storage-location erc7201:PropositionMarketFactoryStorage
     struct PropositionMarketFactoryStorage {
@@ -88,7 +88,7 @@ contract PropositionMarketFactory is
         _unpause();
     }
 
-    function setPlatformFee(uint48 newPlatformFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setPlatformFee(uint256 newPlatformFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _getPropositionMarketFactoryStorage().factorySettings.platformFee = newPlatformFee;
     }
 
@@ -281,7 +281,7 @@ contract PropositionMarketFactory is
      */
     function _getPropositionMarketFactoryStorage() private pure returns (PropositionMarketFactoryStorage storage $) {
         assembly {
-            $.slot := PropositionMarketFactoryStorageLocation
+            $.slot := PROPOSITION_MARKET_FACTORY_STORAGE
         }
     }
 

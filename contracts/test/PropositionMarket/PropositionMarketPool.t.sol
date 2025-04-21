@@ -39,7 +39,7 @@ contract PropositionMarketPoolTest is Test {
                 initialOwner,
                 propositionMarketPool,
                 tokenAddress,
-                FactorySettings({feeRecipient: initialOwner, platformFee: 0.1 ether})
+                FactorySettings({feeRecipient: initialOwner, platformFee: 0.01 ether})
             )
         );
         address proxy = address(new ERC1967Proxy(propositionMarketFactoryAddress, data));
@@ -163,7 +163,7 @@ contract PropositionMarketPoolTest is Test {
         );
 
         assertEq(PropositionMarketPool(pool).getFeeRecipient(), address(initialOwner));
-        assertEq(PropositionMarketPool(pool).getPlatformFee(), 0.1 ether);
+        assertEq(PropositionMarketPool(pool).getPlatformFee(), 0.01 ether);
     }
 
     function test_receivePlatformFee() public {
@@ -258,59 +258,59 @@ contract PropositionMarketPoolTest is Test {
         console.logUint(
             PropositionMarketPool(pool).buy(
                 (IPropositionMarketToken(tokenAddressList[0])),
-                0,
-                1 ether,
-                0,
-                block.timestamp + 3600
-            )
-        );
-
-        console.logUint(
-            PropositionMarketPool(pool).buy(
-                (IPropositionMarketToken(tokenAddressList[0])),
-                0,
-                1 ether,
+                0.9 ether,
+                0.1 ether,
                 0,
                 block.timestamp + 3600
             )
         );
 
-        console.logUint(
-            PropositionMarketPool(pool).buy(
-                (IPropositionMarketToken(tokenAddressList[0])),
-                0,
-                1 ether,
-                0,
-                block.timestamp + 3600
-            )
-        );
+        // console.logUint(
+        //     PropositionMarketPool(pool).buy(
+        //         (IPropositionMarketToken(tokenAddressList[0])),
+        //         1 ether,
+        //         0.1 ether,
+        //         0,
+        //         block.timestamp + 3600
+        //     )
+        // );
 
-        console.logUint(
-            PropositionMarketPool(pool).sell(
-                (IPropositionMarketToken(tokenAddressList[0])),
-                9000000000000000000,
-                0,
-                block.timestamp + 3600
-            )
-        );
+        // console.logUint(
+        //     PropositionMarketPool(pool).buy(
+        //         (IPropositionMarketToken(tokenAddressList[0])),
+        //         0,
+        //         1 ether,
+        //         0,
+        //         block.timestamp + 3600
+        //     )
+        // );
 
-        console.logUint(
-            PropositionMarketPool(pool).sell(
-                (IPropositionMarketToken(tokenAddressList[0])),
-                7262766425400887769,
-                0,
-                block.timestamp + 3600
-            )
-        );
+        // console.logUint(
+        //     PropositionMarketPool(pool).sell(
+        //         (IPropositionMarketToken(tokenAddressList[0])),
+        //         9000000000000000000,
+        //         0,
+        //         block.timestamp + 3600
+        //     )
+        // );
 
-        console.logUint(
-            PropositionMarketPool(pool).sell(
-                (IPropositionMarketToken(tokenAddressList[0])),
-                6609575533692158569,
-                0,
-                block.timestamp + 3600
-            )
-        );
+        // console.logUint(
+        //     PropositionMarketPool(pool).sell(
+        //         (IPropositionMarketToken(tokenAddressList[0])),
+        //         7262766425400887769,
+        //         0,
+        //         block.timestamp + 3600
+        //     )
+        // );
+
+        // console.logUint(
+        //     PropositionMarketPool(pool).sell(
+        //         (IPropositionMarketToken(tokenAddressList[0])),
+        //         6609575533692158569,
+        //         0,
+        //         block.timestamp + 3600
+        //     )
+        // );
     }
     // function test_buyOption() public {
     //     vm.startPrank(initialOwner, initialOwner);

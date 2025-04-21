@@ -8,10 +8,11 @@ import {LibString} from "solady/src/utils/LibString.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
+import {ReentrancyGuard} from"@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 import {IPropositionMarketToken, IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
 
-// TODO:增加pool版本
-contract PropositionMarketPool is IPropositionMarketPool, CWIA {
+contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
     using Price for *;
     using LibString for *;
     using FixedPointMathLib for *;
@@ -135,7 +136,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         IPropositionMarketToken token,
         uint256 tokenAmount,
         uint256 expireTimestamp
-    ) external returns (uint256) {
+    ) external nonReentrant() returns (uint256) {
         if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
 
         address[] memory optionList = getOptionList();
@@ -162,7 +163,9 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
 
         optionTvl[optionList[supplyIndex]] += usdtNetAmount;
-        token.mint(msg.sender, tokenAmount);
+
+        token.mint(address(this), tokenAmount);
+        if (!token.transfer(msg.sender,tokenAmount)) revert PaymentFailed();
 
         emit BuyToken(msg.sender, tokenAmount);
 
@@ -175,7 +178,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         uint256 usdtAmount, // 10
         uint256 minTokenReceived,
         uint256 expireTimestamp
-    ) external returns (uint256) {
+    ) external nonReentrant() returns (uint256) {
         if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
 
         address[] memory optionList = getOptionList();
@@ -190,25 +193,26 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
             supplyOther += IPropositionMarketToken(optionList[i]).totalSupply();
         }
 
-        uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
-        totalPlatformFee += platformFee;
-
-        //uint256 usdtNetAmount = usdtAmount.rawSub(platformFee);
-
         uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getExecutionPrice(
             supplyOther,
             int256(tokenAmount)
         );
 
-        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), tokenPrice.mulWad(tokenAmount)))
-            revert PaymentFailed();
-        optionTvl[optionList[supplyIndex]] += tokenPrice.mulWad(tokenAmount);
+        // 计算包含手续费的数量
+        uint256 usdtNetAmount = tokenPrice.mulWad(tokenAmount).divWad(1 ether.rawSub(getPlatformFee()));
+        // 计算平台token tvl
+        uint256 tokenTvl = tokenPrice.mulWad(tokenAmount);
+        // 计算包含手续费的数量 - 平台token tvl
+        totalPlatformFee += usdtNetAmount.rawSub(tokenTvl);
 
-        //uint256 tokenNetAmount = usdtNetAmount.divWad(tokenPrice);
+        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
+
+        optionTvl[optionList[supplyIndex]] += tokenTvl;
 
         if (tokenAmount < minTokenReceived) revert InsufficientOutputAmount(tokenAmount, minTokenReceived);
 
         token.mint(msg.sender, tokenAmount);
+        if (!token.transfer(msg.sender,tokenAmount)) revert PaymentFailed();
 
         IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
             address(token),
@@ -217,7 +221,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
             tokenPrice
         );
 
-        return tokenAmount;
+        return tokenPrice;
     }
 
     function sell(
@@ -225,7 +229,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
         uint256 tokenAmount,
         uint256 minUsdtReceived,
         uint256 expireTimestamp
-    ) external returns (uint256) {
+    ) external nonReentrant() returns (uint256) {
         if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
 
         address[] memory optionList = getOptionList();
@@ -240,7 +244,9 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA {
             supplyOther += IPropositionMarketToken(optionList[i]).totalSupply();
         }
 
-        token.burn(msg.sender, tokenAmount);
+        if (!token.transferFrom(msg.sender,address(this),tokenAmount)) revert PaymentFailed();
+
+        token.burn(address(this), tokenAmount);
 
         uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getExecutionPrice(
             supplyOther,

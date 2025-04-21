@@ -28,7 +28,7 @@ contract PropositionMarketToken is ERC20, Ownable, CWIA {
         _mint(to, amount);
     }
 
-    function burn(address to, uint256 amount) public onlyOwner {
-        _burn(to, amount);
+    function burn(address from, uint256 amount) public onlyOwner {
+        _burn(from, amount);
     }
 }
