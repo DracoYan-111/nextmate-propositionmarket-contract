@@ -13,7 +13,8 @@ interface IPropositionMarketPool {
     error TimeoutProhibition();
     error InsufficientBalance();
     error OwnableUnauthorizedAccount(address);
-    error InsufficientOutputAmount(uint256, uint256);
+    error SlippageFailed(uint256, uint256);
+    error InvalidToken();
 }
 
 interface IPropositionMarketFactory {

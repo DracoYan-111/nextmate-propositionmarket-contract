@@ -95,10 +95,18 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
     function _getSupplies(address token) internal view returns (uint256 supply, uint256 supplyOther) {
         supply = IERC20(token).totalSupply();
         address[] memory optionList = getOptionList();
+        bool find = false;
+        
         for (uint256 i = 0; i < optionList.length; i++) {
             if (optionList[i] != token) {
                 supplyOther += IERC20(optionList[i]).totalSupply();
+            } else {
+                find = true;
             }
+        }
+        
+        if (!find) {
+            revert InvalidToken();
         }
     }
 
@@ -126,94 +134,54 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
 
     function getApproximatePrice(
         address token,
+        uint256 usdtAmount,
+        uint256 precision,
+        uint256 maxIteration
+    ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
+        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
+        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount, precision, maxIteration);
+    }
+
+    function getApproximatePrice(
+        address token,
         uint256 usdtAmount
     ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
         (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount);
+        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount, Price.DEFAULT_APPROXIMATION_PRECISION, Price.DEFAULT_MAX_ITERATIONS);
     }
 
     function buy(
         IPropositionMarketToken token,
         uint256 tokenAmount,
+        uint256 maxUsdtProvided,
         uint256 expireTimestamp
     ) external nonReentrant() returns (uint256) {
+        // check
         if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
+        require(tokenAmount > 0, "token amount must be greater than 0");
 
-        address[] memory optionList = getOptionList();
-
-        uint256 supplyIndex = 0;
-        uint256 supplyOther = 0;
-        for (uint256 i; i < optionList.length; ++i) {
-            if (optionList[i] == address(token)) {
-                supplyIndex = i;
-                continue;
-            }
-            supplyOther += IPropositionMarketToken(optionList[i]).totalSupply();
-        }
-
-        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getSpotPrice(supplyOther);
-
+        // calculate price and amount
+        (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
+        uint256 tokenPrice = Price.getExecutionPrice(tokenSupply, supplyOther, int256(tokenAmount));
         uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
 
+        // calculate platform fee
         uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
         totalPlatformFee += platformFee;
 
+        // transfer usdt from sender
         uint256 usdtNetAmount = usdtAmount.rawAdd(platformFee);
-
+        if (usdtNetAmount > maxUsdtProvided) revert SlippageFailed(usdtNetAmount, maxUsdtProvided);
         if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
 
-        optionTvl[optionList[supplyIndex]] += usdtNetAmount;
+        // update tvl
+        optionTvl[address(token)] += usdtNetAmount;
 
+        // mint and transfer token to sender
         token.mint(address(this), tokenAmount);
         if (!token.transfer(msg.sender,tokenAmount)) revert PaymentFailed();
 
-        emit BuyToken(msg.sender, tokenAmount);
-
-        return tokenAmount;
-    }
-
-    function buy(
-        IPropositionMarketToken token,
-        uint256 tokenAmount, // 估值 10 Token 100
-        uint256 usdtAmount, // 10
-        uint256 minTokenReceived,
-        uint256 expireTimestamp
-    ) external nonReentrant() returns (uint256) {
-        if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
-
-        address[] memory optionList = getOptionList();
-
-        uint256 supplyIndex = 0;
-        uint256 supplyOther = 0;
-        for (uint256 i; i < optionList.length; ++i) {
-            if (optionList[i] == address(token)) {
-                supplyIndex = i;
-                continue;
-            }
-            supplyOther += IPropositionMarketToken(optionList[i]).totalSupply();
-        }
-
-        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getExecutionPrice(
-            supplyOther,
-            int256(tokenAmount)
-        );
-
-        // 计算包含手续费的数量
-        uint256 usdtNetAmount = tokenPrice.mulWad(tokenAmount).divWad(1 ether.rawSub(getPlatformFee()));
-        // 计算平台token tvl
-        uint256 tokenTvl = tokenPrice.mulWad(tokenAmount);
-        // 计算包含手续费的数量 - 平台token tvl
-        totalPlatformFee += usdtNetAmount.rawSub(tokenTvl);
-
-        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
-
-        optionTvl[optionList[supplyIndex]] += tokenTvl;
-
-        if (tokenAmount < minTokenReceived) revert InsufficientOutputAmount(tokenAmount, minTokenReceived);
-
-        token.mint(msg.sender, tokenAmount);
-        if (!token.transfer(msg.sender,tokenAmount)) revert PaymentFailed();
-
+        // emit event
         IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
             address(token),
             msg.sender,
@@ -221,7 +189,70 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
             tokenPrice
         );
 
-        return tokenPrice;
+        return tokenAmount;
+    }
+
+    function buy(
+        IPropositionMarketToken token,
+        uint256 tokenAmount,
+        uint256 usdtProvided,
+        uint256 minTokenReceived,
+        uint256 expireTimestamp
+    ) external nonReentrant() returns (uint256) {
+        // check
+        if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
+        require(usdtProvided > 0, "usdt provided must be greater than 0");
+
+        // calculate price and amount
+        (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
+        
+        uint256 tokenPrice = tokenSupply.getExecutionPrice(
+            supplyOther,
+            int256(tokenAmount)
+        );
+        uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
+        uint256 usdtNetAmount = usdtAmount.divWad(1 ether.rawSub(getPlatformFee()));
+
+        // check usdt provided
+        if (usdtNetAmount > usdtProvided || (usdtProvided.rawSub(usdtNetAmount) > (usdtProvided / Price.DEFAULT_APPROXIMATION_PRECISION))) {
+            // Recalculate token amount and execution price by approximation
+            uint256 newTokenAmount;
+            uint256 executionPrice;
+            (newTokenAmount, executionPrice) = Price.approximateExecutionPrice(tokenSupply, supplyOther, usdtAmount);
+            
+            // check slippage
+            if (newTokenAmount < minTokenReceived) revert SlippageFailed(newTokenAmount, minTokenReceived);
+
+            // Update values with new token amount
+            tokenAmount = newTokenAmount;
+            tokenPrice = executionPrice;
+            usdtAmount = tokenPrice.mulWad(tokenAmount);
+            usdtNetAmount = usdtAmount.divWad(1 ether.rawSub(getPlatformFee()));
+        }
+
+        // calculate platform fee
+        totalPlatformFee += usdtNetAmount.rawSub(usdtAmount);
+
+        // transfer usdt from sender
+        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
+
+        // update tvl
+        optionTvl[address(token)] += usdtAmount;
+
+        // mint and transfer token to sender
+        if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
+        token.mint(address(this), tokenAmount);
+        if (!token.transfer(msg.sender,tokenAmount)) revert PaymentFailed();
+
+        // emit event
+        IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
+            address(token),
+            msg.sender,
+            int256(tokenAmount),
+            tokenPrice
+        );
+
+        return tokenAmount;
     }
 
     function sell(
@@ -230,41 +261,37 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
         uint256 minUsdtReceived,
         uint256 expireTimestamp
     ) external nonReentrant() returns (uint256) {
+        // check
         if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
+        require(tokenAmount > 0, "token amount must be greater than 0");
 
-        address[] memory optionList = getOptionList();
-
-        uint256 supplyIndex = 0;
-        uint256 supplyOther = 0;
-        for (uint256 i; i < optionList.length; ++i) {
-            if (optionList[i] == address(token)) {
-                supplyIndex = i;
-                continue;
-            }
-            supplyOther += IPropositionMarketToken(optionList[i]).totalSupply();
-        }
-
-        if (!token.transferFrom(msg.sender,address(this),tokenAmount)) revert PaymentFailed();
-
-        token.burn(address(this), tokenAmount);
-
-        uint256 tokenPrice = IPropositionMarketToken(optionList[supplyIndex]).totalSupply().getExecutionPrice(
+        // calculate price and amount
+        (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
+        uint256 tokenPrice = tokenSupply.getExecutionPrice(
             supplyOther,
             int256(tokenAmount)
         );
-
         uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
 
+        // calculate platform fee
         uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
         totalPlatformFee += platformFee;
-
         uint256 usdtNetAmount = usdtAmount.rawSub(platformFee);
+        
+        // check minimum received amount
+        if (usdtNetAmount < minUsdtReceived) revert SlippageFailed(usdtNetAmount, minUsdtReceived);
 
-        if (usdtNetAmount < minUsdtReceived) revert InsufficientOutputAmount(usdtNetAmount, minUsdtReceived);
+        // transfer token from sender and burn it
+        if (!token.transferFrom(msg.sender, address(this), tokenAmount)) revert PaymentFailed();
+        token.burn(address(this), tokenAmount);
 
+        // update tvl
+        optionTvl[address(token)] -= usdtNetAmount;
+
+        // transfer usdt to sender
         if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
-        optionTvl[optionList[supplyIndex]] -= usdtNetAmount;
 
+        // emit event
         IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
             address(token),
             msg.sender,

@@ -45,14 +45,11 @@ library Price {
     /// @notice Non-linear factor for the square root term (18 decimals)
     uint256 public constant k = 0.005 ether;
 
-    /// @notice Conversion factor from token to USDT decimals
-    /// uint256 public constant TOKEN_TO_USDT = 1e12; // 18 - 6 = 12
-
     /// @notice Maximum number of iterations for the binary search
-    uint256 public constant MAX_ITERATIONS = 20;
+    uint256 public constant DEFAULT_MAX_ITERATIONS = 20;
 
     /// @notice Approximation precision for the binary search
-    uint256 public constant APPROXIMATION_PRECISION = 1e3;
+    uint256 public constant DEFAULT_APPROXIMATION_PRECISION = 1e3;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       CUSTOM ERRORS                        */
@@ -60,7 +57,6 @@ library Price {
     error NegativePrice(int256 price);
     error InsufficientSupply(int256 supply);
     error ApproximationFailed();
-    error ZeroSupplyChange();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        PRICE FORMULAS                      */
@@ -83,7 +79,7 @@ library Price {
         uint256 sqrtTerm = k.mulWad(supply.sqrtWad());
 
         uint256 price = pBase + linearTerm + sqrtTerm;
-        return price; /// TOKEN_TO_USDT;
+        return price;
     }
 
     /**
@@ -97,7 +93,7 @@ library Price {
     function getExecutionPrice(uint256 supply, uint256 supplyOther, int256 deltaSupply) public pure returns (uint256) {
         // condition check
         if (deltaSupply == 0) {
-            revert ZeroSupplyChange();
+            return getSpotPrice(supply, supplyOther);
         }
         if (supply.toInt256() + deltaSupply < 0) {
             revert InsufficientSupply(supply.toInt256() + deltaSupply);
@@ -126,46 +122,50 @@ library Price {
         }
 
         // Convert final price from 18 decimals to 6 decimals USDT
-        return price.toUint256(); // / TOKEN_TO_USDT;
+        return price.toUint256();
     }
 
     /**
-     * @notice 计算给定USDT数量可以购买的token数量和平均价格
-     * @param supply 当前token供应量 (18 decimals)
-     * @param supplyOther 配对token的供应量 (18 decimals)
-     * @param usdtAmount 用户提供的USDT数量 (已经是6 decimals)
-     * @return tokenAmount 计算出的token数量 (18 decimals)
-     * @return avgPrice 平均价格 (6 decimals)
-     * @dev 使用二分法结合getAveragePrice函数计算
+     * @notice Calculate the token amount and average price that can be purchased with a given USDT amount
+     * @param supply Current token supply (18 decimals)
+     * @param supplyOther Supply of the paired token (18 decimals)
+     * @param usdtAmount USDT amount provided by user (already in 6 decimals)
+     * @param approxPrecision Approximation precision
+     * @param maxIteration Maximum number of iterations
+     * @return tokenAmount Calculated token amount (18 decimals)
+     * @return avgPrice Average price (6 decimals)
+     * @dev Uses binary search combined with getAveragePrice function
      */
     function approximateExecutionPrice(
         uint256 supply,
         uint256 supplyOther,
-        uint256 usdtAmount
+        uint256 usdtAmount,
+        uint256 approxPrecision,
+        uint256 maxIteration
     ) public pure returns (uint256 tokenAmount, uint256 avgPrice) {
-        // 计算新的供应量 (买入情况，只会增加)
+        // Calculate new supply (buying case, will only increase)
         uint256 spotPrice = getSpotPrice(supply, supplyOther);
         uint256 newSupply = supply + usdtAmount.divWad(spotPrice);
 
-        // 设置二分法的上下界（基于当前价格和新价格）
-        // 买入情况，价格会上升
+        // Set binary search bounds (based on current price and new price)
+        // Buying case, price will increase
         uint256 upperBound = newSupply;
         uint256 lowerBound = supply;
 
-        // 设置精度要求 1/1000
-        int256 precision = (usdtAmount / APPROXIMATION_PRECISION).toInt256();
+        // Set precision requirement 1/1000
+        int256 precision = (usdtAmount / approxPrecision).toInt256();
 
-        // 添加循环次数限制
+        // Add iteration limit
         uint iterations = 0;
 
-        // 进行二分查找
-        while (iterations < MAX_ITERATIONS) {
+        // Perform binary search
+        while (iterations < maxIteration) {
             uint256 mid = (lowerBound + upperBound) / 2;
 
-            // 计算mid数量token的平均价格
+            // Calculate average price for mid amount of tokens
             uint256 price = getExecutionPrice(supply, supplyOther, mid.toInt256());
 
-            // 计算总价值（USDT，6位小数）
+            // Calculate total value (USDT, 6 decimals)
             uint256 totalValue = price.mulWad(mid - supply);
             int256 usdtDiff = usdtAmount.toInt256() - totalValue.toInt256();
 
@@ -174,7 +174,7 @@ library Price {
             } else if (totalValue > usdtAmount) {
                 upperBound = mid;
             } else {
-                // 找到精确匹配
+                // Found exact match
                 return (mid - supply, price);
             }
 
@@ -182,10 +182,26 @@ library Price {
                 return (mid - supply, price);
             }
 
-            // 增加迭代计数
+            // Increment iteration count
             iterations++;
         }
 
         revert ApproximationFailed();
+    }
+
+    /**
+     * @notice Convenience method to calculate token amount and price using default precision and iteration parameters
+     * @param supply Current token supply (18 decimals)
+     * @param supplyOther Supply of the paired token (18 decimals)
+     * @param usdtAmount USDT amount provided by user (6 decimals)
+     * @return tokenAmount Calculated token amount (18 decimals)
+     * @return avgPrice Average price (6 decimals)
+     */
+    function approximateExecutionPrice(
+        uint256 supply,
+        uint256 supplyOther,
+        uint256 usdtAmount
+    ) public pure returns (uint256 tokenAmount, uint256 avgPrice) {
+        return approximateExecutionPrice(supply, supplyOther, usdtAmount, DEFAULT_APPROXIMATION_PRECISION, DEFAULT_MAX_ITERATIONS);
     }
 }
