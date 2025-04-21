@@ -65,7 +65,7 @@ library Price {
      * @notice Calculates the spot price based on current token supplies
      * @param supply Current token supply (18 decimals)
      * @param supplyOther Supply of the paired token (18 decimals)
-     * @return price The calculated spot price in USDT (6 decimals)
+     * @return The calculated spot price in USDT (6 decimals)
      * @dev Implements P(supply) = pBase + supply / (supplyTotal + m) + k * sqrt(supply)
      */
     function getSpotPrice(uint256 supply, uint256 supplyOther) public pure returns (uint256) {
@@ -78,8 +78,7 @@ library Price {
         // Calculate square root term: k * sqrt(supply)
         uint256 sqrtTerm = k.mulWad(supply.sqrtWad());
 
-        uint256 price = pBase + linearTerm + sqrtTerm;
-        return price;
+        return pBase + linearTerm + sqrtTerm;
     }
 
     /**
@@ -92,12 +91,9 @@ library Price {
      */
     function getExecutionPrice(uint256 supply, uint256 supplyOther, int256 deltaSupply) public pure returns (uint256) {
         // condition check
-        if (deltaSupply == 0) {
-            return getSpotPrice(supply, supplyOther);
-        }
-        if (supply.toInt256() + deltaSupply < 0) {
-            revert InsufficientSupply(supply.toInt256() + deltaSupply);
-        }
+        if (deltaSupply == 0) return getSpotPrice(supply, supplyOther);
+
+        if (supply.toInt256() + deltaSupply < 0) revert InsufficientSupply(supply.toInt256() + deltaSupply);
 
         uint256 newSupply = deltaSupply > 0 ? supply + deltaSupply.toUint256() : supply - (-deltaSupply).toUint256();
         uint256 c = supplyOther + m;
@@ -117,9 +113,7 @@ library Price {
 
         // Calculate final average price
         int256 price = (pBase.toInt256().sMulWad(deltaSupply) + integralTerm + sqrtIntegral).sDivWad(deltaSupply);
-        if (price < 0) {
-            revert NegativePrice(price);
-        }
+        if (price < 0) revert NegativePrice(price);
 
         // Convert final price from 18 decimals to 6 decimals USDT
         return price.toUint256();
@@ -178,9 +172,7 @@ library Price {
                 return (mid - supply, price);
             }
 
-            if (usdtDiff > 0 && usdtDiff <= precision) {
-                return (mid - supply, price);
-            }
+            if (usdtDiff > 0 && usdtDiff <= precision) return (mid - supply, price);
 
             // Increment iteration count
             iterations++;
@@ -202,6 +194,13 @@ library Price {
         uint256 supplyOther,
         uint256 usdtAmount
     ) public pure returns (uint256 tokenAmount, uint256 avgPrice) {
-        return approximateExecutionPrice(supply, supplyOther, usdtAmount, DEFAULT_APPROXIMATION_PRECISION, DEFAULT_MAX_ITERATIONS);
+        return
+            approximateExecutionPrice(
+                supply,
+                supplyOther,
+                usdtAmount,
+                DEFAULT_APPROXIMATION_PRECISION,
+                DEFAULT_MAX_ITERATIONS
+            );
     }
 }

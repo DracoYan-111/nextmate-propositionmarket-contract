@@ -8,11 +8,11 @@ import {LibString} from "solady/src/utils/LibString.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
-import {ReentrancyGuard} from"@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IPropositionMarketToken, IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
 
-contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
+contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard {
     using Price for *;
     using LibString for *;
     using FixedPointMathLib for *;
@@ -96,18 +96,16 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
         supply = IERC20(token).totalSupply();
         address[] memory optionList = getOptionList();
         bool find = false;
-        
-        for (uint256 i = 0; i < optionList.length; i++) {
+
+        for (uint256 i = 0; i < optionList.length; ++i) {
             if (optionList[i] != token) {
                 supplyOther += IERC20(optionList[i]).totalSupply();
             } else {
                 find = true;
             }
         }
-        
-        if (!find) {
-            revert InvalidToken();
-        }
+
+        if (!find) revert InvalidToken();
     }
 
     function getSpotPrice(address token) public view returns (uint256) {
@@ -139,7 +137,13 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
         uint256 maxIteration
     ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
         (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount, precision, maxIteration);
+        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(
+            supply,
+            supplyOther,
+            usdtAmount,
+            precision,
+            maxIteration
+        );
     }
 
     function getApproximatePrice(
@@ -147,7 +151,13 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
         uint256 usdtAmount
     ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
         (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount, Price.DEFAULT_APPROXIMATION_PRECISION, Price.DEFAULT_MAX_ITERATIONS);
+        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(
+            supply,
+            supplyOther,
+            usdtAmount,
+            Price.DEFAULT_APPROXIMATION_PRECISION,
+            Price.DEFAULT_MAX_ITERATIONS
+        );
     }
 
     function buy(
@@ -155,10 +165,10 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
         uint256 tokenAmount,
         uint256 maxUsdtProvided,
         uint256 expireTimestamp
-    ) external nonReentrant() returns (uint256) {
+    ) external nonReentrant returns (uint256) {
         // check
         if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
-        require(tokenAmount > 0, "token amount must be greater than 0");
+        if (tokenAmount == 0) revert ZeroQuantityError();
 
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
@@ -179,7 +189,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
 
         // mint and transfer token to sender
         token.mint(address(this), tokenAmount);
-        if (!token.transfer(msg.sender,tokenAmount)) revert PaymentFailed();
+        if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
 
         // emit event
         IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
@@ -198,28 +208,28 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
         uint256 usdtProvided,
         uint256 minTokenReceived,
         uint256 expireTimestamp
-    ) external nonReentrant() returns (uint256) {
+    ) external nonReentrant returns (uint256) {
         // check
         if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
-        require(usdtProvided > 0, "usdt provided must be greater than 0");
+        if (usdtProvided == 0) revert ZeroQuantityError();
 
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
-        
-        uint256 tokenPrice = tokenSupply.getExecutionPrice(
-            supplyOther,
-            int256(tokenAmount)
-        );
+
+        uint256 tokenPrice = tokenSupply.getExecutionPrice(supplyOther, int256(tokenAmount));
         uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
         uint256 usdtNetAmount = usdtAmount.divWad(1 ether.rawSub(getPlatformFee()));
 
         // check usdt provided
-        if (usdtNetAmount > usdtProvided || (usdtProvided.rawSub(usdtNetAmount) > (usdtProvided / Price.DEFAULT_APPROXIMATION_PRECISION))) {
+        if (
+            usdtNetAmount > usdtProvided ||
+            (usdtProvided.rawSub(usdtNetAmount) > (usdtProvided / Price.DEFAULT_APPROXIMATION_PRECISION))
+        ) {
             // Recalculate token amount and execution price by approximation
             uint256 newTokenAmount;
             uint256 executionPrice;
             (newTokenAmount, executionPrice) = Price.approximateExecutionPrice(tokenSupply, supplyOther, usdtAmount);
-            
+
             // check slippage
             if (newTokenAmount < minTokenReceived) revert SlippageFailed(newTokenAmount, minTokenReceived);
 
@@ -241,8 +251,9 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
 
         // mint and transfer token to sender
         if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
+
         token.mint(address(this), tokenAmount);
-        if (!token.transfer(msg.sender,tokenAmount)) revert PaymentFailed();
+        if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
 
         // emit event
         IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
@@ -260,24 +271,21 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA,ReentrancyGuard {
         uint256 tokenAmount,
         uint256 minUsdtReceived,
         uint256 expireTimestamp
-    ) external nonReentrant() returns (uint256) {
+    ) external nonReentrant returns (uint256) {
         // check
         if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
-        require(tokenAmount > 0, "token amount must be greater than 0");
+        if (tokenAmount == 0) revert ZeroQuantityError();
 
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
-        uint256 tokenPrice = tokenSupply.getExecutionPrice(
-            supplyOther,
-            int256(tokenAmount)
-        );
+        uint256 tokenPrice = tokenSupply.getExecutionPrice(supplyOther, int256(tokenAmount));
         uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
 
         // calculate platform fee
         uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
         totalPlatformFee += platformFee;
         uint256 usdtNetAmount = usdtAmount.rawSub(platformFee);
-        
+
         // check minimum received amount
         if (usdtNetAmount < minUsdtReceived) revert SlippageFailed(usdtNetAmount, minUsdtReceived);
 

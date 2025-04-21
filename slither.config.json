@@ -12,7 +12,7 @@
   "exclude_informational": true,
   "exclude_low": true,
   "exclude_medium": false,
-  "exclude_high": false,  
+  "exclude_high": false,
   "fail_on": "none",
   "filter_paths": "contracts/lib|contracts/test|contracts/src/Create2DeployerLocal.sol|@openzeppelin|hardhat/console.sol|xdeployer",
   "solc_remaps": [

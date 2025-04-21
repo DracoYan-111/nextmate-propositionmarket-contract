@@ -31,8 +31,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     args: [],
     log: true,
     libraries: {
-      "Price":"0x7EDd4f09B23Ea4c9442830e3119B148d8f2ca20F",
-    }
+      Price: '0x7EDd4f09B23Ea4c9442830e3119B148d8f2ca20F',
+    },
   });
 
   const tokenContract = await deploy('PropositionMarketToken', {
@@ -54,15 +54,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     autoMine: true,
     proxy: {
       checkProxyAdmin: false,
-      proxyContract: "ERC1967Proxy",
-      proxyArgs: ["{implementation}", "{data}"],
+      proxyContract: 'ERC1967Proxy',
+      proxyArgs: ['{implementation}', '{data}'],
       upgradeFunction: {
-        methodName: "upgradeToAndCall",
-        upgradeArgs: ["{implementation}", "{data}"],
+        methodName: 'upgradeToAndCall',
+        upgradeArgs: ['{implementation}', '{data}'],
       },
       execute: {
         init: {
-          methodName: "initialize",
+          methodName: 'initialize',
           args: data,
         },
       },
