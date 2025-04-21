@@ -136,6 +136,8 @@ contract PropositionMarketFactory is
         );
         pool = $.implementation.cloneDeterministic(addressListData, salt);
 
+        _grantRole(POOL_ROLE, pool);
+
         for (uint256 i = 0; i < tokenSettings.length; ) {
             IPropositionMarketToken(addressList[i]).transferOwnership(pool);
             unchecked {
@@ -285,8 +287,12 @@ contract PropositionMarketFactory is
         }
     }
 
-    function emitEventTrade(address token, address trader, int256 tokenAmount, uint256 executionPrice) external {
-        //onlyRole(POOL_ROLE){
+    function emitEventTrade(
+        address token,
+        address trader,
+        int256 tokenAmount,
+        uint256 executionPrice
+    ) external onlyRole(POOL_ROLE) {
         emit trade(msg.sender, token, trader, tokenAmount, executionPrice);
     }
 }
