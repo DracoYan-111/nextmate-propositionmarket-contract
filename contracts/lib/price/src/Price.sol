@@ -155,12 +155,13 @@ library Price {
         // Perform binary search
         while (iterations < maxIteration) {
             uint256 mid = (lowerBound + upperBound) / 2;
+            uint256 supplyDelta = mid - supply;
 
             // Calculate average price for mid amount of tokens
-            uint256 price = getExecutionPrice(supply, supplyOther, mid.toInt256());
+            uint256 price = getExecutionPrice(supply, supplyOther, supplyDelta.toInt256());
 
             // Calculate total value (USDT, 6 decimals)
-            uint256 totalValue = price.mulWad(mid - supply);
+            uint256 totalValue = price.mulWad(supplyDelta);
             int256 usdtDiff = usdtAmount.toInt256() - totalValue.toInt256();
 
             if (totalValue < usdtAmount) {
@@ -169,10 +170,10 @@ library Price {
                 upperBound = mid;
             } else {
                 // Found exact match
-                return (mid - supply, price);
+                return (supplyDelta, price);
             }
 
-            if (usdtDiff > 0 && usdtDiff <= precision) return (mid - supply, price);
+            if (usdtDiff > 0 && usdtDiff <= precision) return (supplyDelta, price);
 
             // Increment iteration count
             iterations++;
