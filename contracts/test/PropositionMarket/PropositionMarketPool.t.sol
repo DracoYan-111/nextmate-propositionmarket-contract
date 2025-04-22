@@ -10,7 +10,6 @@ import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
@@ -67,8 +66,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         assertEq(PropositionMarketPool(pool).getOptionListLength(), nameAndSymbolList.length);
@@ -81,8 +79,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         address[] memory propositionTokenAddressList = propositionMarketFactory.predictDeterministicAddress(
@@ -105,8 +102,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         assertEq(PropositionMarketPool(pool).getFactoryAddress(), address(propositionMarketFactory));
@@ -119,8 +115,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         assertEq(PropositionMarketPool(pool).getManagerAddress(), initialOwner);
@@ -133,8 +128,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         assertEq(PropositionMarketPool(pool).getPoolTitle(), "testtesttesttest");
@@ -147,8 +141,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         assertEq(address(PropositionMarketPool(pool).getPayTokenAddress()), address(testTokenAddress));
@@ -161,8 +154,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         assertEq(PropositionMarketPool(pool).getFeeRecipient(), address(initialOwner));
@@ -176,8 +168,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         vm.expectRevert(abi.encodeWithSelector(IPropositionMarketPool.InsufficientBalance.selector));
@@ -204,8 +195,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         vm.startPrank(
@@ -236,8 +226,7 @@ contract PropositionMarketPoolTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         assertEq(PropositionMarketPool(pool).getPoolVersion(), propositionMarketFactory.getPoolVersion());
@@ -251,17 +240,12 @@ contract PropositionMarketPoolTest is Test {
                 nameAndSymbolList,
                 "testtesttesttest",
                 address(testTokenAddress),
-                initialOwner,
-                keccak256("testtesttesttest")
+                initialOwner
             )
         );
 
         testTokenAddress.mint(initialOwner, 100 ether);
         testTokenAddress.approve(address(pool), 100 ether);
-
-        console.logUint(
-            pool.buy((IPropositionMarketToken(pool.getOptionList()[0])), 0.9 ether, 2 ether, 0, block.timestamp + 3600)
-        );
 
         // console.logUint(
         //     PropositionMarketPool(pool).buy(
@@ -322,8 +306,7 @@ contract PropositionMarketPoolTest is Test {
                 nameAndSymbolList,
                 "testtesttesttest",
                 address(testTokenAddress),
-                initialOwner,
-                keccak256("testtesttesttest")
+                initialOwner
             )
         );
 
@@ -334,29 +317,24 @@ contract PropositionMarketPoolTest is Test {
         testTokenAddress.approve(address(pool), 100 ether);
 
         uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
-        uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        // uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
 
         // 打印初始余额
-        console.log("usdtBalanceBefore: %s", usdtBalanceBefore);
-        console.log("tokenBalanceBefore: %s", tokenBalanceBefore);
-        console.log("platformFee: %s", pool.getPlatformFee());
 
         // Test basic buy for just one token (single-sided)
         uint256 maxUsdtProvided = 2 ether; // Max USDT to spend
 
         uint256 estimateServiceFee = maxUsdtProvided.mulWad(pool.getPlatformFee());
         uint256 usdtForBuyingToken = maxUsdtProvided.rawSub(estimateServiceFee);
-        console.log("usdtForBuyingToken: %s", usdtForBuyingToken);
 
         // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
-        (uint256 tokenAmount, uint256 avgPrice) = pool.getApproximatePrice(
+        (uint256 tokenAmount, ) = pool.getApproximatePrice(
             tokenAddressList[0],
             usdtForBuyingToken,
             1e9, // 1/1000000000 误差
             50 // 最多50次迭代
         );
-        console.log("tokenAmount: %s", tokenAmount);
-        console.log("avgPrice: %s", avgPrice);
+
         uint256 tokensReceived = pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
             tokenAmount,
@@ -364,22 +342,19 @@ contract PropositionMarketPoolTest is Test {
             uint256(0),
             block.timestamp + 3600
         );
-        console.log("tokensReceived: %s", tokensReceived);
 
         // Check token balance
         uint256 tokenBalance = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
-        console.log("tokenBalance: %s", tokenBalance);
+
         assertEq(tokenBalance, tokensReceived, "Token balance should match tokens received");
 
         // check usdt
         uint256 serviceFee = pool.totalPlatformFee();
-        console.log("platformFee: %s", pool.totalPlatformFee());
+
         uint256 usdtReceviedForPool = pool.optionTvl(tokenAddressList[0]);
         uint256 usdtBalance = testTokenAddress.balanceOf(initialOwner);
         uint256 usdtReduced = usdtBalanceBefore - usdtBalance;
-        console.log("usdt balance: %s", usdtBalance);
-        console.log("usdtReduced: %s", usdtReduced);
-        console.log("usdtReceviedForPool: %s", usdtReceviedForPool);
+
         assertEq(usdtReduced, usdtReceviedForPool + serviceFee, "USDT balance should match");
     }
 
@@ -394,8 +369,7 @@ contract PropositionMarketPoolTest is Test {
                 nameAndSymbolList,
                 "testtesttesttest",
                 address(testTokenAddress),
-                initialOwner,
-                keccak256("testtesttesttest")
+                initialOwner
             )
         );
 
@@ -407,37 +381,33 @@ contract PropositionMarketPoolTest is Test {
 
         // First buy some tokens to sell later
         uint256 buyTokenAmount = 5 ether;
-        console.log("Token amount to buy: %s", buyTokenAmount);
+
         uint256 tokensReceived = pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
             buyTokenAmount,
             100 ether,
             block.timestamp + 3600
         );
-        console.log("Tokens received: %s", tokensReceived);
 
         // Record balances before selling
         uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
-        console.log("USDT balance before sell: %s", usdtBalanceBefore);
-        uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
-        console.log("Token balance before sell: %s", tokenBalanceBefore);
-        uint256 platformFeeBefore = pool.totalPlatformFee();
-        console.log("Platform fee before sell: %s", platformFeeBefore);
+
+        // uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+
+        // uint256 platformFeeBefore = pool.totalPlatformFee();
+
         uint256 optionTvlBefore = pool.optionTvl(tokenAddressList[0]);
-        console.log("Token TVL before sell: %s", optionTvlBefore);
 
         // Check pool's USDT balance before selling
         uint256 poolUsdtBalanceBefore = pool.getPayTokenAddress().balanceOf(address(pool));
-        console.log("Pool USDT balance before sell: %s", poolUsdtBalanceBefore);
 
         // Approve tokens to sell half
         uint256 tokensToSell = tokensReceived / 2;
-        console.log("Tokens to sell: %s", tokensToSell);
+
         IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokensToSell);
 
         // Get expected sell price
-        uint256 expectedPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
-        console.log("Expected sell price: %s", expectedPrice);
+        // uint256 expectedPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
 
         uint256 usdtReceived = pool.sell(
             IPropositionMarketToken(tokenAddressList[0]),
@@ -445,37 +415,33 @@ contract PropositionMarketPoolTest is Test {
             0, // No slippage protection
             block.timestamp + 3600
         );
-        console.log("USDT received: %s", usdtReceived);
 
         // Check token balance
         uint256 tokenBalance = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
-        console.log("Token balance after sell: %s", tokenBalance);
+
         assertEq(tokenBalance, tokensReceived - tokensToSell, "Token balance should be reduced by sold amount");
 
         // Check TVL change
         uint256 optionTvlAfter = pool.optionTvl(tokenAddressList[0]);
-        console.log("Token TVL after sell: %s", optionTvlAfter);
-        console.log("TVL reduction: %s", optionTvlBefore - optionTvlAfter);
+
         uint256 tvlDiff = optionTvlBefore - optionTvlAfter;
         assertEq(usdtReceived, tvlDiff, "USDT received should equal TVL reduction");
 
         // Check pool's USDT balance after selling
         uint256 poolUsdtBalanceAfter = pool.getPayTokenAddress().balanceOf(address(pool));
-        console.log("Pool USDT balance after sell: %s", poolUsdtBalanceAfter);
+
         uint256 poolUsdtDiff = poolUsdtBalanceBefore - poolUsdtBalanceAfter;
-        console.log("Pool USDT balance reduction: %s", poolUsdtDiff);
+
         assertEq(poolUsdtDiff, usdtReceived, "Pool USDT balance reduction should equal USDT received");
 
         // Check USDT balance
         uint256 usdtBalanceAfter = testTokenAddress.balanceOf(initialOwner);
-        console.log("USDT balance after sell: %s", usdtBalanceAfter);
-        console.log("USDT balance increase: %s", usdtBalanceAfter - usdtBalanceBefore);
+
         assertEq(usdtBalanceAfter, usdtBalanceBefore + usdtReceived, "USDT balance should increase by received amount");
 
         // Check platform fee and TVL
-        uint256 platformFeeAfter = pool.totalPlatformFee();
-        uint256 feeCollected = platformFeeAfter - platformFeeBefore;
-        console.log("Platform fee collected: %s", feeCollected);
+        // uint256 platformFeeAfter = pool.totalPlatformFee();
+        // uint256 feeCollected = platformFeeAfter - platformFeeBefore;
     }
     // function test_buyOption() public {
 }

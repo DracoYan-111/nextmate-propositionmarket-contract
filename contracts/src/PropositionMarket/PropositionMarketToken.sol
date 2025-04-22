@@ -12,6 +12,14 @@ contract PropositionMarketToken is ERC20, Ownable, CWIA {
 
     constructor() ERC20(type(PropositionMarketToken).name, type(PropositionMarketToken).name) Ownable(address(this)) {}
 
+    function mint(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
+    }
+
+    function burn(address from, uint256 amount) public onlyOwner {
+        _burn(from, amount);
+    }
+
     function owner() public view override returns (address) {
         return super.owner() == address(0) ? _getArgAddress(0) : super.owner();
     }
@@ -22,13 +30,5 @@ contract PropositionMarketToken is ERC20, Ownable, CWIA {
 
     function symbol() public pure override returns (string memory) {
         return _getArgBytes32(52).fromSmallString();
-    }
-
-    function mint(address to, uint256 amount) public onlyOwner {
-        _mint(to, amount);
-    }
-
-    function burn(address from, uint256 amount) public onlyOwner {
-        _burn(from, amount);
     }
 }

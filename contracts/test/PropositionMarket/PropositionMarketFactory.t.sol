@@ -8,7 +8,7 @@ import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {console} from "forge-std/console.sol";
+
 import {Test} from "forge-std/Test.sol";
 
 contract PropositionMarketFactoryTest is Test {
@@ -69,8 +69,7 @@ contract PropositionMarketFactoryTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         assertNotEq(pool, address(0));
@@ -83,15 +82,13 @@ contract PropositionMarketFactoryTest is Test {
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
 
         assertEq(pool, predictPool);
@@ -119,8 +116,7 @@ contract PropositionMarketFactoryTest is Test {
             newNameAndSymbolList,
             "testtesttesttest",
             address(testTokenAddress),
-            initialOwner,
-            keccak256("testtesttesttest")
+            initialOwner
         );
         address[] memory addressList = PropositionMarketPool(pool).getOptionList();
 

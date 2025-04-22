@@ -6,8 +6,8 @@ interface IPropositionMarketToken {
 }
 
 interface IPropositionMarketFactory {
-    event createPool(address indexed pool);
-    event trade(
+    event CreatePool(address indexed pool);
+    event Trade(
         address indexed pool,
         address indexed token,
         address indexed trader,

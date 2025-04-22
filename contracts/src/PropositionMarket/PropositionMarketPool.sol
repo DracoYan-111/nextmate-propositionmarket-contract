@@ -30,134 +30,14 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         _;
     }
 
-    function getOptionListLength() external pure returns (uint256) {
-        return _getArgUint64(0);
+    modifier timeCheck(uint256 expireTimestamp) {
+        if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
+        _;
     }
 
-    function getOptionList() public view returns (address[] memory) {
-        unchecked {
-            address dataPointer = _getArgAddress(8);
-            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
-
-            address[] memory sliced = new address[](_getArgUint64(0));
-            for (uint256 i = 0; i < _getArgUint64(0); ++i) {
-                sliced[i] = fullList[i];
-            }
-
-            return sliced;
-        }
-    }
-
-    function getFactoryAddress() public view returns (address) {
-        unchecked {
-            address dataPointer = _getArgAddress(8);
-            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
-            return fullList[fullList.length - 3];
-        }
-    }
-
-    function getManagerAddress() public view returns (address) {
-        unchecked {
-            address dataPointer = _getArgAddress(8);
-            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
-            return fullList[fullList.length - 2];
-        }
-    }
-
-    function getPayTokenAddress() public view returns (IERC20) {
-        unchecked {
-            address dataPointer = _getArgAddress(8);
-            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
-            return IERC20(fullList[fullList.length - 1]);
-        }
-    }
-
-    function getPoolTitle() public pure returns (string memory) {
-        unchecked {
-            return _getArgBytes32(28).fromSmallString();
-        }
-    }
-
-    function getPoolVersion() public pure returns (string memory) {
-        unchecked {
-            return _getArgBytes32(60).fromSmallString();
-        }
-    }
-
-    function getPlatformFee() public view returns (uint256) {
-        return IPropositionMarketFactory(getFactoryAddress()).getPlatformFee();
-    }
-
-    function getFeeRecipient() external view returns (address) {
-        return IPropositionMarketFactory(getFactoryAddress()).getFeeRecipient();
-    }
-
-    function _getSupplies(address token) internal view returns (uint256 supply, uint256 supplyOther) {
-        supply = IERC20(token).totalSupply();
-        address[] memory optionList = getOptionList();
-        bool find = false;
-
-        for (uint256 i = 0; i < optionList.length; ++i) {
-            if (optionList[i] != token) {
-                supplyOther += IERC20(optionList[i]).totalSupply();
-            } else {
-                find = true;
-            }
-        }
-
-        if (!find) revert InvalidToken();
-    }
-
-    function getSpotPrice(address token) public view returns (uint256) {
-        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        return Price.getSpotPrice(supply, supplyOther);
-    }
-
-    function calculateSpotPrice(uint256 supply, uint256 supplyOther) external pure returns (uint256) {
-        return Price.getSpotPrice(supply, supplyOther);
-    }
-
-    function getExecutionPrice(address token, int256 amountChanged) public view returns (uint256) {
-        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        return Price.getExecutionPrice(supply, supplyOther, amountChanged);
-    }
-
-    function calculateExecutionPrice(
-        uint256 supply,
-        uint256 supplyOther,
-        int256 amountChanged
-    ) external pure returns (uint256) {
-        return Price.getExecutionPrice(supply, supplyOther, amountChanged);
-    }
-
-    function getApproximatePrice(
-        address token,
-        uint256 usdtAmount,
-        uint256 precision,
-        uint256 maxIteration
-    ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
-        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(
-            supply,
-            supplyOther,
-            usdtAmount,
-            precision,
-            maxIteration
-        );
-    }
-
-    function getApproximatePrice(
-        address token,
-        uint256 usdtAmount
-    ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
-        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(
-            supply,
-            supplyOther,
-            usdtAmount,
-            Price.DEFAULT_APPROXIMATION_PRECISION,
-            Price.DEFAULT_MAX_ITERATIONS
-        );
+    modifier tokenAmountCheck(uint256 tokenAmount) {
+        if (tokenAmount == 0) revert ZeroQuantityError();
+        _;
     }
 
     function buy(
@@ -165,11 +45,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 tokenAmount,
         uint256 maxUsdtProvided,
         uint256 expireTimestamp
-    ) external nonReentrant returns (uint256) {
-        // check
-        if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
-        if (tokenAmount == 0) revert ZeroQuantityError();
-
+    ) external nonReentrant timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
         uint256 tokenPrice = Price.getExecutionPrice(tokenSupply, supplyOther, int256(tokenAmount));
@@ -188,8 +64,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         optionTvl[address(token)] += usdtNetAmount;
 
         // mint and transfer token to sender
-        token.mint(address(this), tokenAmount);
-        if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
+        _mintAndTransfer(token, tokenAmount);
 
         // emit event
         IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
@@ -208,11 +83,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 usdtProvided,
         uint256 minTokenReceived,
         uint256 expireTimestamp
-    ) external nonReentrant returns (uint256) {
-        // check
-        if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
-        if (usdtProvided == 0) revert ZeroQuantityError();
-
+    ) external nonReentrant timeCheck(expireTimestamp) tokenAmountCheck(usdtProvided) returns (uint256) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
 
@@ -226,9 +97,11 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
             (usdtProvided.rawSub(usdtNetAmount) > (usdtProvided / Price.DEFAULT_APPROXIMATION_PRECISION))
         ) {
             // Recalculate token amount and execution price by approximation
-            uint256 newTokenAmount;
-            uint256 executionPrice;
-            (newTokenAmount, executionPrice) = Price.approximateExecutionPrice(tokenSupply, supplyOther, usdtAmount);
+            (uint256 newTokenAmount, uint256 executionPrice) = Price.approximateExecutionPrice(
+                tokenSupply,
+                supplyOther,
+                usdtAmount
+            );
 
             // check slippage
             if (newTokenAmount < minTokenReceived) revert SlippageFailed(newTokenAmount, minTokenReceived);
@@ -252,8 +125,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         // mint and transfer token to sender
         if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
 
-        token.mint(address(this), tokenAmount);
-        if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
+        _mintAndTransfer(token, tokenAmount);
 
         // emit event
         IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
@@ -271,11 +143,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 tokenAmount,
         uint256 minUsdtReceived,
         uint256 expireTimestamp
-    ) external nonReentrant returns (uint256) {
-        // check
-        if (expireTimestamp < block.timestamp) revert TimeoutProhibition();
-        if (tokenAmount == 0) revert ZeroQuantityError();
-
+    ) external nonReentrant timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
         uint256 tokenPrice = tokenSupply.getExecutionPrice(supplyOther, int256(tokenAmount));
@@ -320,5 +188,140 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
     function pausedPool() external onlyManager {
         if (paused) revert EnforcedPause();
         emit Paused(paused = !paused);
+    }
+
+    function getFeeRecipient() external view returns (address) {
+        return IPropositionMarketFactory(getFactoryAddress()).getFeeRecipient();
+    }
+
+    function getOptionListLength() external pure returns (uint256) {
+        return _getArgUint64(0);
+    }
+
+    function calculateSpotPrice(uint256 supply, uint256 supplyOther) external pure returns (uint256) {
+        return Price.getSpotPrice(supply, supplyOther);
+    }
+
+    function calculateExecutionPrice(
+        uint256 supply,
+        uint256 supplyOther,
+        int256 amountChanged
+    ) external pure returns (uint256) {
+        return Price.getExecutionPrice(supply, supplyOther, amountChanged);
+    }
+
+    function getOptionList() public view returns (address[] memory) {
+        unchecked {
+            address dataPointer = _getArgAddress(8);
+            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
+
+            address[] memory sliced = new address[](_getArgUint64(0));
+            for (uint256 i = 0; i < _getArgUint64(0); ++i) {
+                sliced[i] = fullList[i];
+            }
+
+            return sliced;
+        }
+    }
+
+    function getFactoryAddress() public view returns (address) {
+        unchecked {
+            address dataPointer = _getArgAddress(8);
+            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
+            return fullList[fullList.length - 3];
+        }
+    }
+
+    function getManagerAddress() public view returns (address) {
+        unchecked {
+            address dataPointer = _getArgAddress(8);
+            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
+            return fullList[fullList.length - 2];
+        }
+    }
+
+    function getPayTokenAddress() public view returns (IERC20) {
+        unchecked {
+            address dataPointer = _getArgAddress(8);
+            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
+            return IERC20(fullList[fullList.length - 1]);
+        }
+    }
+
+    function getPlatformFee() public view returns (uint256) {
+        return IPropositionMarketFactory(getFactoryAddress()).getPlatformFee();
+    }
+
+    function getSpotPrice(address token) public view returns (uint256) {
+        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
+        return Price.getSpotPrice(supply, supplyOther);
+    }
+
+    function getExecutionPrice(address token, int256 amountChanged) public view returns (uint256) {
+        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
+        return Price.getExecutionPrice(supply, supplyOther, amountChanged);
+    }
+
+    function getApproximatePrice(
+        address token,
+        uint256 usdtAmount,
+        uint256 precision,
+        uint256 maxIteration
+    ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
+        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
+        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(
+            supply,
+            supplyOther,
+            usdtAmount,
+            precision,
+            maxIteration
+        );
+    }
+
+    function getApproximatePrice(
+        address token,
+        uint256 usdtAmount
+    ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
+        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
+        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(
+            supply,
+            supplyOther,
+            usdtAmount,
+            Price.DEFAULT_APPROXIMATION_PRECISION,
+            Price.DEFAULT_MAX_ITERATIONS
+        );
+    }
+
+    function getPoolTitle() public pure returns (string memory) {
+        unchecked {
+            return _getArgBytes32(28).fromSmallString();
+        }
+    }
+
+    function getPoolVersion() public pure returns (string memory) {
+        unchecked {
+            return _getArgBytes32(60).fromSmallString();
+        }
+    }
+
+    function _mintAndTransfer(IPropositionMarketToken token, uint256 tokenAmount) internal {
+        token.mint(address(this), tokenAmount);
+        if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
+    }
+
+    function _getSupplies(address token) internal view returns (uint256 supply, uint256 supplyOther) {
+        supply = IERC20(token).totalSupply();
+        address[] memory optionList = getOptionList();
+        bool find = false;
+
+        for (uint256 i = 0; i < optionList.length; ++i) {
+            if (optionList[i] != token) {
+                supplyOther += IERC20(optionList[i]).totalSupply();
+            } else {
+                find = true;
+            }
+        }
+
+        if (!find) revert InvalidToken();
     }
 }

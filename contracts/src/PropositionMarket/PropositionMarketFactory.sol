@@ -37,15 +37,6 @@ contract PropositionMarketFactory is
     using LibString for *;
     using SafeTransferLib for *;
 
-    bytes32 public constant POOL_ROLE = keccak256("POOL_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
-    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
-
-    // keccak256(abi.encode(uint256(keccak256("PROPOSITION_MARKET_FACTORY_STORAGE")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant PROPOSITION_MARKET_FACTORY_STORAGE =
-        0xca2fe85550dc2df9d90e90f9056a5a27c19809a8536e8712d438bd80180ec500;
-
     /// @custom:storage-location erc7201:PropositionMarketFactoryStorage
     struct PropositionMarketFactoryStorage {
         string version;
@@ -53,6 +44,15 @@ contract PropositionMarketFactory is
         address tokenImplementation;
         FactorySettings factorySettings;
     }
+
+    bytes32 public constant POOL_ROLE = keccak256("POOL_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
+
+    // keccak256(abi.encode(uint256(keccak256("PropositionMarketFactoryStorage")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant _PROPOSITION_MARKET_FACTORY_STORAGE =
+        0xca2fe85550dc2df9d90e90f9056a5a27c19809a8536e8712d438bd80180ec500;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -80,11 +80,11 @@ contract PropositionMarketFactory is
         _grantRole(CREATOR_ROLE, _defaultAdmin);
     }
 
-    function pause() public onlyRole(PAUSER_ROLE) {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    function unpause() public onlyRole(PAUSER_ROLE) {
+    function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
 
@@ -108,12 +108,20 @@ contract PropositionMarketFactory is
         _getPropositionMarketFactoryStorage().version = version;
     }
 
+    function emitEventTrade(
+        address token,
+        address trader,
+        int256 tokenAmount,
+        uint256 executionPrice
+    ) external onlyRole(POOL_ROLE) {
+        emit Trade(msg.sender, token, trader, tokenAmount, executionPrice);
+    }
+
     function createContracts(
         TokenSettings[] memory tokenSettings,
         string calldata poolTitle,
         address payToken,
-        address manager,
-        bytes32 salt
+        address manager
     ) external returns (address pool) {
         PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
 
@@ -134,7 +142,7 @@ contract PropositionMarketFactory is
             tokenSettings.length,
             poolTitle
         );
-        pool = $.implementation.cloneDeterministic(addressListData, salt);
+        pool = $.implementation.cloneDeterministic(addressListData, keccak256(abi.encode(addressListData)));
 
         _grantRole(POOL_ROLE, pool);
 
@@ -144,89 +152,8 @@ contract PropositionMarketFactory is
                 ++i;
             }
         }
-        emit createPool(pool);
+        emit CreatePool(pool);
         return pool;
-    }
-
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
-
-    /**
-     * @dev Get predict deterministic address
-     */
-    function predictDeterministicAddress(
-        TokenSettings[] calldata tokenSettings
-    ) public view virtual returns (address[] memory addressList) {
-        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
-
-        unchecked {
-            addressList = new address[](tokenSettings.length);
-
-            for (uint256 i = 0; i < tokenSettings.length; ) {
-                (bytes memory data, bytes32 salt) = _encodeImmutableArgs(tokenSettings[i]);
-                addressList[i] = $.tokenImplementation.predictDeterministicAddress(data, salt, address(this));
-                ++i;
-            }
-        }
-    }
-
-    function predictDeterministicAddress(
-        TokenSettings[] calldata tokenSettings,
-        string calldata poolTitle,
-        address payToken,
-        address manager,
-        bytes32 salt
-    ) public view virtual returns (address pool) {
-        unchecked {
-            address[] memory oldList = predictDeterministicAddress(tokenSettings);
-            uint256 len = oldList.length;
-
-            address[] memory addressList = new address[](len + 3);
-
-            for (uint256 i = 0; i < len; ) {
-                addressList[i] = oldList[i];
-                ++i;
-            }
-
-            addressList[len] = address(this);
-            addressList[len + 1] = manager;
-            addressList[len + 2] = payToken;
-
-            bytes memory addressListData = _encodeImmutableArgs(
-                SSTORE2.predictCounterfactualAddress(abi.encode(addressList), keccak256(abi.encode(addressList))),
-                tokenSettings.length,
-                poolTitle
-            );
-            pool = _getPropositionMarketFactoryStorage().implementation.predictDeterministicAddress(
-                addressListData,
-                salt,
-                address(this)
-            );
-        }
-    }
-
-    function _encodeImmutableArgs(TokenSettings memory args) internal view virtual returns (bytes memory, bytes32) {
-        unchecked {
-            return (
-                abi.encodePacked(args.owner, args.name.toSmallString(), args.symbol.toSmallString()),
-                keccak256(abi.encode(args.owner, args.name, args.symbol))
-            );
-        }
-    }
-
-    function _encodeImmutableArgs(
-        address dataPointer,
-        uint256 length,
-        string calldata poolTitle
-    ) internal view virtual returns (bytes memory) {
-        unchecked {
-            return
-                abi.encodePacked(
-                    abi.encodePacked(uint64(length)),
-                    dataPointer,
-                    poolTitle.toSmallString(),
-                    _getPropositionMarketFactoryStorage().version.toSmallString()
-                );
-        }
     }
 
     function predictInitCodeHash(
@@ -279,20 +206,91 @@ contract PropositionMarketFactory is
     }
 
     /**
+     * @dev Get predict deterministic address
+     */
+    function predictDeterministicAddress(
+        TokenSettings[] calldata tokenSettings
+    ) public view virtual returns (address[] memory addressList) {
+        PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
+
+        unchecked {
+            addressList = new address[](tokenSettings.length);
+
+            for (uint256 i = 0; i < tokenSettings.length; ) {
+                (bytes memory data, bytes32 salt) = _encodeImmutableArgs(tokenSettings[i]);
+                addressList[i] = $.tokenImplementation.predictDeterministicAddress(data, salt, address(this));
+                ++i;
+            }
+        }
+    }
+
+    function predictDeterministicAddress(
+        TokenSettings[] calldata tokenSettings,
+        string calldata poolTitle,
+        address payToken,
+        address manager
+    ) public view virtual returns (address pool) {
+        unchecked {
+            address[] memory oldList = predictDeterministicAddress(tokenSettings);
+            uint256 len = oldList.length;
+
+            address[] memory addressList = new address[](len + 3);
+
+            for (uint256 i = 0; i < len; ) {
+                addressList[i] = oldList[i];
+                ++i;
+            }
+
+            addressList[len] = address(this);
+            addressList[len + 1] = manager;
+            addressList[len + 2] = payToken;
+
+            bytes memory addressListData = _encodeImmutableArgs(
+                SSTORE2.predictCounterfactualAddress(abi.encode(addressList), keccak256(abi.encode(addressList))),
+                tokenSettings.length,
+                poolTitle
+            );
+            pool = _getPropositionMarketFactoryStorage().implementation.predictDeterministicAddress(
+                addressListData,
+                keccak256(abi.encode(addressListData)),
+                address(this)
+            );
+        }
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
+
+    function _encodeImmutableArgs(TokenSettings memory args) internal view virtual returns (bytes memory, bytes32) {
+        unchecked {
+            return (
+                abi.encodePacked(args.owner, args.name.toSmallString(), args.symbol.toSmallString()),
+                keccak256(abi.encode(args.owner, args.name, args.symbol))
+            );
+        }
+    }
+
+    function _encodeImmutableArgs(
+        address dataPointer,
+        uint256 length,
+        string calldata poolTitle
+    ) internal view virtual returns (bytes memory) {
+        unchecked {
+            return
+                abi.encodePacked(
+                    abi.encodePacked(uint64(length)),
+                    dataPointer,
+                    poolTitle.toSmallString(),
+                    _getPropositionMarketFactoryStorage().version.toSmallString()
+                );
+        }
+    }
+
+    /**
      * @dev Get PropositionMarketFactoryStorage data
      */
     function _getPropositionMarketFactoryStorage() private pure returns (PropositionMarketFactoryStorage storage $) {
         assembly {
-            $.slot := PROPOSITION_MARKET_FACTORY_STORAGE
+            $.slot := _PROPOSITION_MARKET_FACTORY_STORAGE
         }
-    }
-
-    function emitEventTrade(
-        address token,
-        address trader,
-        int256 tokenAmount,
-        uint256 executionPrice
-    ) external onlyRole(POOL_ROLE) {
-        emit trade(msg.sender, token, trader, tokenAmount, executionPrice);
     }
 }
