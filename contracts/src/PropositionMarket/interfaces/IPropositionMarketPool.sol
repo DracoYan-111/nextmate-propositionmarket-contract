@@ -5,6 +5,13 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IPropositionMarketPool {
     event Paused(bool);
+    event Swap(
+        address indexed sender,
+        uint256 amountIn,
+        uint256 amountOut,
+        address indexed tokenIn,
+        address indexed tokenOut
+    );
 
     error EnforcedPause();
     error PaymentFailed();

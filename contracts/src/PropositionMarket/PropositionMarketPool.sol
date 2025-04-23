@@ -18,7 +18,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
 
     uint256 public totalPlatformFee;
     bool public paused;
-    mapping(address => uint256) public optionTvl;
+    uint256 public tvl;
 
     modifier onlyManager() {
         if (getManagerAddress() != msg.sender) revert OwnableUnauthorizedAccount(msg.sender);
@@ -60,7 +60,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
 
         // update tvl
-        optionTvl[address(token)] += usdtNetAmount;
+        tvl += usdtNetAmount;
 
         // mint and transfer token to sender
         _mintAndTransfer(token, tokenAmount);
@@ -82,7 +82,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 usdtProvided,
         uint256 minTokenReceived,
         uint256 expireTimestamp
-    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(usdtProvided) returns (uint256) {
+    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(usdtProvided) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
 
@@ -96,18 +96,12 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
             (usdtProvided.rawSub(usdtNetAmount) > (usdtProvided / Price.DEFAULT_APPROXIMATION_PRECISION))
         ) {
             // Recalculate token amount and execution price by approximation
-            (uint256 newTokenAmount, uint256 executionPrice) = Price.approximateExecutionPrice(
-                tokenSupply,
-                supplyOther,
-                usdtAmount
-            );
+            (tokenAmount, tokenPrice) = Price.approximateExecutionPrice(tokenSupply, supplyOther, usdtAmount);
 
             // check slippage
-            if (newTokenAmount < minTokenReceived) revert SlippageFailed(newTokenAmount, minTokenReceived);
+            if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
 
             // Update values with new token amount
-            tokenAmount = newTokenAmount;
-            tokenPrice = executionPrice;
             usdtAmount = tokenPrice.mulWad(tokenAmount);
             usdtNetAmount = usdtAmount.divWad(1 ether.rawSub(getPlatformFee()));
         }
@@ -119,7 +113,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
 
         // update tvl
-        optionTvl[address(token)] += usdtAmount;
+        tvl += usdtAmount;
 
         // mint and transfer token to sender
         if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
@@ -133,8 +127,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
             int256(tokenAmount),
             tokenPrice
         );
-
-        return tokenAmount;
+        emit Swap(msg.sender, usdtNetAmount, tokenAmount, address(getPayTokenAddress()), address(token));
     }
 
     function sell(
@@ -142,7 +135,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 tokenAmount,
         uint256 minUsdtReceived,
         uint256 expireTimestamp
-    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
+    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
         uint256 tokenPrice = tokenSupply.getExecutionPrice(supplyOther, -int256(tokenAmount));
@@ -160,7 +153,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         token.burn(msg.sender, tokenAmount);
 
         // update tvl
-        optionTvl[address(token)] -= usdtNetAmount;
+        tvl -= usdtNetAmount;
 
         // transfer usdt to sender
         if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
@@ -172,8 +165,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
             -int256(tokenAmount),
             tokenPrice
         );
-
-        return usdtNetAmount;
+        emit Swap(msg.sender, usdtNetAmount, tokenAmount, address(getPayTokenAddress()), address(token));
     }
 
     function receivePlatformFee(address receiver) external onlyManager {

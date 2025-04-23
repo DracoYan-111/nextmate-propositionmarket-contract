@@ -109,7 +109,7 @@ npx hardhat verify --network fantomMain --constructor-args arguments.js <YOUR_CO
 This template includes an [example script](./scripts/interact.ts) that shows how to interact programmatically with a deployed contract. You must customise it according to your contract's specifications. The script can be simply invoked via:
 
 ```console
-npx hardhat run scripts/interact.ts --network <network_name>
+npx hardhat run scripts/xxx.ts --network <network_name>
 ```
 
 ## Foundry
