@@ -137,13 +137,9 @@ library Price {
         uint256 approxPrecision,
         uint256 maxIteration
     ) public pure returns (uint256 tokenAmount, uint256 avgPrice) {
-        // Calculate new supply (buying case, will only increase)
-        uint256 spotPrice = getSpotPrice(supply, supplyOther);
-        uint256 newSupply = supply + usdtAmount.divWad(spotPrice);
-
         // Set binary search bounds (based on current price and new price)
         // Buying case, price will increase
-        uint256 upperBound = newSupply;
+        uint256 upperBound = supply + usdtAmount.divWad(getSpotPrice(supply, supplyOther));
         uint256 lowerBound = supply;
 
         // Set precision requirement 1/1000

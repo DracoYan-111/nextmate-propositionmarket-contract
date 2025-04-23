@@ -5,7 +5,6 @@ import {Price} from "price/src/Price.sol";
 import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 import {CWIA} from "solady/src/utils/legacy/CWIA.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
-import {LibString} from "solady/src/utils/LibString.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -26,7 +25,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         _;
     }
     modifier whenNotPaused() {
-        if (!paused) revert EnforcedPause();
+        if (paused) revert EnforcedPause();
         _;
     }
 
@@ -45,7 +44,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 tokenAmount,
         uint256 maxUsdtProvided,
         uint256 expireTimestamp
-    ) external nonReentrant timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
+    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
         uint256 tokenPrice = Price.getExecutionPrice(tokenSupply, supplyOther, int256(tokenAmount));
@@ -83,7 +82,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 usdtProvided,
         uint256 minTokenReceived,
         uint256 expireTimestamp
-    ) external nonReentrant timeCheck(expireTimestamp) tokenAmountCheck(usdtProvided) returns (uint256) {
+    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(usdtProvided) returns (uint256) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
 
@@ -143,7 +142,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 tokenAmount,
         uint256 minUsdtReceived,
         uint256 expireTimestamp
-    ) external nonReentrant timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
+    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
         uint256 tokenPrice = tokenSupply.getExecutionPrice(supplyOther, int256(tokenAmount));
@@ -158,8 +157,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         if (usdtNetAmount < minUsdtReceived) revert SlippageFailed(usdtNetAmount, minUsdtReceived);
 
         // transfer token from sender and burn it
-        if (!token.transferFrom(msg.sender, address(this), tokenAmount)) revert PaymentFailed();
-        token.burn(address(this), tokenAmount);
+        token.burn(msg.sender, tokenAmount);
 
         // update tvl
         optionTvl[address(token)] -= usdtNetAmount;
@@ -180,9 +178,11 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
 
     function receivePlatformFee(address receiver) external onlyManager {
         if (totalPlatformFee == 0) revert InsufficientBalance();
+        uint256 oldTotalPlatformFee = totalPlatformFee;
+
         totalPlatformFee = 0;
 
-        if (!getPayTokenAddress().transfer(receiver, totalPlatformFee)) revert PaymentFailed();
+        if (!getPayTokenAddress().transfer(receiver, oldTotalPlatformFee)) revert PaymentFailed();
     }
 
     function pausedPool() external onlyManager {

@@ -244,55 +244,7 @@ contract PropositionMarketPoolTest is Test {
             )
         );
 
-        testTokenAddress.mint(initialOwner, 100 ether);
-        testTokenAddress.approve(address(pool), 100 ether);
-
-        // console.logUint(
-        //     PropositionMarketPool(pool).buy(
-        //         (IPropositionMarketToken(tokenAddressList[0])),
-        //         1 ether,
-        //         0.1 ether,
-        //         0,
-        //         block.timestamp + 3600
-        //     )
-        // );
-
-        // console.logUint(
-        //     PropositionMarketPool(pool).buy(
-        //         (IPropositionMarketToken(tokenAddressList[0])),
-        //         0,
-        //         1 ether,
-        //         0,
-        //         block.timestamp + 3600
-        //     )
-        // );
-
-        // console.logUint(
-        //     PropositionMarketPool(pool).sell(
-        //         (IPropositionMarketToken(tokenAddressList[0])),
-        //         9000000000000000000,
-        //         0,
-        //         block.timestamp + 3600
-        //     )
-        // );
-
-        // console.logUint(
-        //     PropositionMarketPool(pool).sell(
-        //         (IPropositionMarketToken(tokenAddressList[0])),
-        //         7262766425400887769,
-        //         0,
-        //         block.timestamp + 3600
-        //     )
-        // );
-
-        // console.logUint(
-        //     PropositionMarketPool(pool).sell(
-        //         (IPropositionMarketToken(tokenAddressList[0])),
-        //         6609575533692158569,
-        //         0,
-        //         block.timestamp + 3600
-        //     )
-        // );
+        assertEq(propositionMarketFactory.hasRole(propositionMarketFactory.POOL_ROLE(), address(pool)), true);
     }
 
     /**
@@ -443,5 +395,31 @@ contract PropositionMarketPoolTest is Test {
         // uint256 platformFeeAfter = pool.totalPlatformFee();
         // uint256 feeCollected = platformFeeAfter - platformFeeBefore;
     }
+
     // function test_buyOption() public {
+
+    // function buyToken() public {
+    //     vm.startPrank(initialOwner, initialOwner);
+
+    //     PropositionMarketPool pool = PropositionMarketPool(
+    //         propositionMarketFactory.createContracts(
+    //             nameAndSymbolList,
+    //             "testtesttesttest",
+    //             address(testTokenAddress),
+    //             initialOwner
+    //         )
+    //     );
+
+    //     address[] memory tokenAddressList = pool.getOptionList();
+
+    //     testTokenAddress.mint(initialOwner, 100 ether);
+    //     testTokenAddress.approve(address(pool), 100 ether);
+
+    //     pool.buy(
+    //         IPropositionMarketToken(IPropositionMarketToken(tokenAddressList[0])),
+    //         5000000 ether,
+    //         10000000 ether,
+    //         block.timestamp + 3600
+    //     );
+    // }
 }
