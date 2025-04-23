@@ -353,8 +353,8 @@ contract PropositionMarketPoolTest is Test {
         // Check pool's USDT balance before selling
         uint256 poolUsdtBalanceBefore = pool.getPayTokenAddress().balanceOf(address(pool));
 
-        // Approve tokens to sell half
-        uint256 tokensToSell = tokensReceived / 2;
+        // Approve tokens to sell all
+        uint256 tokensToSell = tokensReceived;
 
         IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokensToSell);
 
