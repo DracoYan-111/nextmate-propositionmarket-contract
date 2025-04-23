@@ -263,6 +263,8 @@ contract PriceTest is Test {
 
             uint256 actualUsdtValue = (avgPrice * supplyDelta) / 1e18;
             assertLe(actualUsdtValue, usdtAmount);
+            assertEq(Price.getExecutionPrice(supply, supplyOther, int256(supplyDelta)), avgPrice);
+
             assertApproxEqAbs(actualUsdtValue, usdtAmount, usdtAmount / Price.DEFAULT_APPROXIMATION_PRECISION);
         }
 
@@ -279,6 +281,7 @@ contract PriceTest is Test {
 
             uint256 actualUsdtValue = (avgPrice * supplyDelta) / 1e18;
             assertLe(actualUsdtValue, usdtAmount);
+            assertEq(Price.getExecutionPrice(supply, supplyOther, int256(supplyDelta)), avgPrice);
             assertApproxEqAbs(actualUsdtValue, usdtAmount, usdtAmount / Price.DEFAULT_APPROXIMATION_PRECISION);
         }
     }
