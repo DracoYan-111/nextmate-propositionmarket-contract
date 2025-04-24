@@ -65,8 +65,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(PropositionMarketPool(pool).getOptionListLength(), nameAndSymbolList.length);
@@ -78,8 +77,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         address[] memory propositionTokenAddressList = propositionMarketFactory.predictDeterministicAddress(
@@ -101,8 +99,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(PropositionMarketPool(pool).getFactoryAddress(), address(propositionMarketFactory));
@@ -114,8 +111,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(PropositionMarketPool(pool).getManagerAddress(), initialOwner);
@@ -127,8 +123,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(PropositionMarketPool(pool).getPoolTitle(), "testtesttesttest");
@@ -140,8 +135,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(address(PropositionMarketPool(pool).getPayTokenAddress()), address(testTokenAddress));
@@ -194,8 +188,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         vm.startPrank(
@@ -236,12 +229,7 @@ contract PropositionMarketPoolTest is Test {
         vm.startPrank(initialOwner, initialOwner);
 
         PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
         );
 
         assertEq(propositionMarketFactory.hasRole(propositionMarketFactory.POOL_ROLE(), address(pool)), true);
@@ -254,12 +242,7 @@ contract PropositionMarketPoolTest is Test {
         vm.startPrank(initialOwner, initialOwner);
 
         PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
         );
 
         address[] memory tokenAddressList = pool.getOptionList();
@@ -318,12 +301,7 @@ contract PropositionMarketPoolTest is Test {
         vm.startPrank(initialOwner, initialOwner);
 
         PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
         );
 
         address[] memory tokenAddressList = pool.getOptionList();

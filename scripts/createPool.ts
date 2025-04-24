@@ -25,9 +25,8 @@ async function main() {
   ];
   const poolTitle = 'BLACK VS BTS Two';
   const payToken = '0x163aC8C09D41a6Dc90EbF95dCb767D9aDb469f7e';
-  const manager = '0x9031d6BAD21d4847933FD614230Fe9b89eE904c5';
 
-  const tx = await factoryContract.createContracts(tokenSettings, poolTitle, payToken, manager);
+  const tx = await factoryContract.createContracts(tokenSettings, poolTitle, payToken);
   console.log('The transaction hash is: ' + `${GREEN}${tx.hash}${RESET}\n`);
   console.log('Waiting until the transaction is confirmed...\n');
   const receipt = await tx.wait(); // Wait until the transaction is confirmed
