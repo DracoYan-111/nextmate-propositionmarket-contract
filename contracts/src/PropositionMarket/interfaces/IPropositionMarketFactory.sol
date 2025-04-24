@@ -17,3 +17,7 @@ interface IPropositionMarketFactory {
 
     error InvalidInput(string[]);
 }
+
+interface IPropositionMarketPool {
+    function upgradeToAndCall(address, bytes memory) external payable;
+}

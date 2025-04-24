@@ -7,11 +7,14 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @custom:security-contact draco@nextmate.ai
-contract PropositionMarketToken is ERC20, Ownable {
+contract PropositionMarketTokenNew is ERC20, Ownable {
     using LibClone for *;
     using LibString for *;
 
-    constructor() ERC20(type(PropositionMarketToken).name, type(PropositionMarketToken).name) Ownable(address(this)) {
+    constructor()
+        ERC20(type(PropositionMarketTokenNew).name, type(PropositionMarketTokenNew).name)
+        Ownable(address(this))
+    {
         _transferOwnership(address(0));
     }
 

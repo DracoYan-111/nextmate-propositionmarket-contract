@@ -26,7 +26,7 @@ struct FactorySettings {
 }
 
 /// @custom:security-contact draco@nextmate.ai
-contract PropositionMarketFactory is
+contract PropositionMarketFactoryNew is
     Initializable,
     PausableUpgradeable,
     AccessControlUpgradeable,

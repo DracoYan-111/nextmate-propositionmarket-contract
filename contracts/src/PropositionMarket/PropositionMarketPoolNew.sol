@@ -12,7 +12,7 @@ import {UUPSUpgradeable, Initializable} from "@openzeppelin/contracts-upgradeabl
 
 import {IPropositionMarketToken, IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
 
-contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initializable, UUPSUpgradeable {
+contract PropositionMarketPoolNew is IPropositionMarketPool, ReentrancyGuard, Initializable, UUPSUpgradeable {
     using Price for *;
     using LibClone for *;
     using LibString for *;
