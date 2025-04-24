@@ -8,6 +8,7 @@ import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {PausableUpgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+
 import {IPropositionMarketToken, IPropositionMarketFactory, IPropositionMarketPool} from "./interfaces/IPropositionMarketFactory.sol";
 
 struct MarketSettings {
@@ -109,6 +110,21 @@ contract PropositionMarketFactory is
         _getPropositionMarketFactoryStorage().version = version;
     }
 
+    function collectDesignatedPoolPlatformFee(
+        IPropositionMarketPool[] calldata pool,
+        address receiver
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        for (uint256 i = 0; i < pool.length; ++i) {
+            pool[i].collectPlatformFee(receiver);
+        }
+    }
+
+    function pausedDesignatedPool(IPropositionMarketPool[] calldata pool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        for (uint256 i = 0; i < pool.length; ++i) {
+            pool[i].pausedPool();
+        }
+    }
+
     function poolUpgradeToAndCall(
         IPropositionMarketPool[] calldata pool,
         address newImplementation,
@@ -156,6 +172,7 @@ contract PropositionMarketFactory is
 
         pool = $.implementation.deployDeterministicERC1967(addressListData, keccak256(abi.encode(addressListData)));
 
+        IPropositionMarketPool(pool).initialize();
         _grantRole(POOL_ROLE, pool);
 
         for (uint256 i = 0; i < tokenSettings.length; ) {

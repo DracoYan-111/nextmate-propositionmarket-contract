@@ -27,10 +27,6 @@ contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initi
         _;
     }
 
-    modifier onlyManager() {
-        if (getManagerAddress() != msg.sender) revert OwnableUnauthorizedAccount(msg.sender);
-        _;
-    }
     modifier whenNotPaused() {
         if (paused) revert EnforcedPause();
         _;
@@ -53,43 +49,6 @@ contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initi
     function initialize() external initializer {
         // any logic you want at deployment time, eg registering with factory
         __UUPSUpgradeable_init();
-    }
-
-    function buy(
-        IPropositionMarketToken token,
-        uint256 tokenAmount,
-        uint256 maxUsdtProvided,
-        uint256 expireTimestamp
-    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
-        // calculate price and amount
-        (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
-        uint256 tokenPrice = Price.getExecutionPrice(tokenSupply, supplyOther, int256(tokenAmount));
-        uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
-
-        // calculate platform fee
-        uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
-        totalPlatformFee += platformFee;
-
-        // transfer usdt from sender
-        uint256 usdtNetAmount = usdtAmount.rawAdd(platformFee);
-        if (usdtNetAmount > maxUsdtProvided) revert SlippageFailed(usdtNetAmount, maxUsdtProvided);
-        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
-
-        // update tvl
-        tvl += usdtNetAmount;
-
-        // mint and transfer token to sender
-        _mintAndTransfer(token, tokenAmount);
-
-        // emit event
-        IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
-            address(token),
-            msg.sender,
-            int256(tokenAmount),
-            tokenPrice
-        );
-
-        return tokenAmount;
     }
 
     function buy(
@@ -169,7 +128,7 @@ contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initi
         token.burn(msg.sender, tokenAmount);
 
         // update tvl
-        tvl -= usdtNetAmount;
+        tvl -= tokenAmount;
 
         // transfer usdt to sender
         if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
@@ -184,7 +143,7 @@ contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initi
         emit Swap(msg.sender, usdtNetAmount, tokenAmount, address(getPayTokenAddress()), address(token));
     }
 
-    function receivePlatformFee(address receiver) external onlyManager {
+    function collectPlatformFee(address receiver) external onlyFactory {
         if (totalPlatformFee == 0) revert InsufficientBalance();
         uint256 oldTotalPlatformFee = totalPlatformFee;
 
@@ -193,17 +152,9 @@ contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initi
         if (!getPayTokenAddress().transfer(receiver, oldTotalPlatformFee)) revert PaymentFailed();
     }
 
-    function pausedPool() external onlyManager {
+    function pausedPool() external onlyFactory {
         if (paused) revert EnforcedPause();
         emit Paused(paused = !paused);
-    }
-
-    function getFeeRecipient() external view returns (address) {
-        return IPropositionMarketFactory(getFactoryAddress()).getFeeRecipient();
-    }
-
-    function calculateSpotPrice(uint256 supply, uint256 supplyOther) external pure returns (uint256) {
-        return Price.getSpotPrice(supply, supplyOther);
     }
 
     function getOptionListLength() public view returns (uint256 length) {
@@ -212,14 +163,6 @@ contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initi
             length := shr(192, mload(add(data, 32))) // 取低8字节
         }
         return length;
-    }
-
-    function calculateExecutionPrice(
-        uint256 supply,
-        uint256 supplyOther,
-        int256 amountChanged
-    ) external pure returns (uint256) {
-        return Price.getExecutionPrice(supply, supplyOther, amountChanged);
     }
 
     function getOptionList() public view returns (address[] memory) {
@@ -291,37 +234,17 @@ contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initi
         );
     }
 
-    function getApproximatePrice(
-        address token,
-        uint256 usdtAmount
-    ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
-        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(
-            supply,
-            supplyOther,
-            usdtAmount,
-            Price.DEFAULT_APPROXIMATION_PRECISION,
-            Price.DEFAULT_MAX_ITERATIONS
-        );
-    }
-
     function getPoolTitle() public view returns (string memory) {
         unchecked {
             return _bytesToBytes32(address(this).argsOnERC1967(28, 60)).fromSmallString();
         }
     }
 
-    function getPoolVersion() public view returns (string memory) {
-        unchecked {
-            return _bytesToBytes32(address(this).argsOnERC1967(60, 92)).fromSmallString();
-        }
-    }
-
     function _authorizeUpgrade(address newImplementation) internal override onlyFactory {}
 
     function _mintAndTransfer(IPropositionMarketToken token, uint256 tokenAmount) internal {
-        token.mint(address(this), tokenAmount);
-        if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
+        token.mint(msg.sender, tokenAmount);
+        // if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
     }
 
     function _getSupplies(address token) internal view returns (uint256 supply, uint256 supplyOther) {

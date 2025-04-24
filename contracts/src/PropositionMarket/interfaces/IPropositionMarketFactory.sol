@@ -20,4 +20,10 @@ interface IPropositionMarketFactory {
 
 interface IPropositionMarketPool {
     function upgradeToAndCall(address, bytes memory) external payable;
+
+    function collectPlatformFee(address receiver) external;
+
+    function initialize() external;
+
+    function pausedPool() external;
 }
