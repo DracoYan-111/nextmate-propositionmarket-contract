@@ -334,21 +334,34 @@ contract PropositionMarketPoolTest is Test {
 
         // First buy some tokens to sell later
         uint256 buyTokenAmount = 5 ether;
-
-        uint256 tokensReceived = pool.buy(
+        
+        // 计算购买指定数量代币所需的USDT金额（包含平台费用）
+        uint256 buyTokenPrice = pool.getExecutionPrice(tokenAddressList[0], int256(buyTokenAmount));
+        uint256 baseUsdtAmount = buyTokenPrice.mulWad(buyTokenAmount);
+        uint256 platformFeeAmount = baseUsdtAmount.mulWad(pool.getPlatformFee());
+        uint256 totalUsdtNeeded = baseUsdtAmount.rawAdd(platformFeeAmount);
+        
+        // 记录买入前的代币余额
+        uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        
+        // 使用带有滑点保护的buy方法
+        pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
             buyTokenAmount,
-            100 ether,
+            totalUsdtNeeded.rawAdd(1 ether), // 额外提供一些USDT作为缓冲
+            buyTokenAmount.mulWad(0.99 ether), // 设置minTokenReceived为请求数量的99%
             block.timestamp + 3600
         );
+        
+        // 计算获得的代币数量
+        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) - tokenBalanceBefore;
 
         // Record balances before selling
         uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
-
+        
+        // 其他记录不需要了
         // uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
-
         // uint256 platformFeeBefore = pool.totalPlatformFee();
-
         // uint256 optionTvlBefore = pool.optionTvl(tokenAddressList[0]);
 
         // Check pool's USDT balance before selling
@@ -541,20 +554,35 @@ contract PropositionMarketPoolTest is Test {
 
         // 先购买一些代币
         uint256 buyTokenAmount = 5 ether;
-        uint256 tokensReceived = pool.buy(
+        
+        // 计算购买指定数量代币所需的USDT金额（包含平台费用）
+        uint256 buyTokenPrice = pool.getExecutionPrice(tokenAddressList[0], int256(buyTokenAmount));
+        uint256 baseUsdtAmount = buyTokenPrice.mulWad(buyTokenAmount);
+        uint256 platformFeeAmount = baseUsdtAmount.mulWad(pool.getPlatformFee());
+        uint256 totalUsdtNeeded = baseUsdtAmount.rawAdd(platformFeeAmount);
+        
+        // 记录买入前的代币余额
+        uint256 buyTokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        
+        // 使用带有滑点保护的buy方法
+        pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
             buyTokenAmount,
-            100 ether,
+            totalUsdtNeeded.rawAdd(1 ether), // 额外提供一些USDT作为缓冲
+            buyTokenAmount.mulWad(0.99 ether), // 设置minTokenReceived为请求数量的99%
             block.timestamp + 3600
         );
+        
+        // 计算获得的代币数量
+        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) - buyTokenBalanceBefore;
 
         // 准备卖出所有代币
         uint256 tokensToSell = tokensReceived;
         IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokensToSell);
         
         // 计算预期可以获得的USDT金额
-        uint256 tokenPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
-        uint256 expectedUsdtAmount = tokenPrice.mulWad(tokensToSell);
+        uint256 sellTokenPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
+        uint256 expectedUsdtAmount = sellTokenPrice.mulWad(tokensToSell);
         uint256 platformFee = expectedUsdtAmount.mulWad(pool.getPlatformFee());
         uint256 expectedUsdtNetAmount = expectedUsdtAmount.rawSub(platformFee);
         
@@ -597,20 +625,35 @@ contract PropositionMarketPoolTest is Test {
 
         // 先购买一些代币
         uint256 buyTokenAmount = 5 ether;
-        uint256 tokensReceived = pool.buy(
+        
+        // 计算购买指定数量代币所需的USDT金额（包含平台费用）
+        uint256 buyTokenPrice = pool.getExecutionPrice(tokenAddressList[0], int256(buyTokenAmount));
+        uint256 baseUsdtAmount = buyTokenPrice.mulWad(buyTokenAmount);
+        uint256 platformFeeAmount = baseUsdtAmount.mulWad(pool.getPlatformFee());
+        uint256 totalUsdtNeeded = baseUsdtAmount.rawAdd(platformFeeAmount);
+        
+        // 记录买入前的代币余额
+        uint256 buyTokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        
+        // 使用带有滑点保护的buy方法
+        pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
             buyTokenAmount,
-            100 ether,
+            totalUsdtNeeded.rawAdd(1 ether), // 额外提供一些USDT作为缓冲
+            buyTokenAmount.mulWad(0.99 ether), // 设置minTokenReceived为请求数量的99%
             block.timestamp + 3600
         );
+        
+        // 计算获得的代币数量
+        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) - buyTokenBalanceBefore;
         
         // 准备卖出所有代币
         uint256 tokensToSell = tokensReceived;
         IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokensToSell);
         
         // 计算预期可以获得的USDT金额
-        uint256 tokenPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
-        uint256 expectedUsdtAmount = tokenPrice.mulWad(tokensToSell);
+        uint256 sellTokenPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
+        uint256 expectedUsdtAmount = sellTokenPrice.mulWad(tokensToSell);
         uint256 platformFee = expectedUsdtAmount.mulWad(pool.getPlatformFee());
         uint256 expectedUsdtNetAmount = expectedUsdtAmount.rawSub(platformFee);
         
