@@ -9,14 +9,15 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {PausableUpgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
-import {IPropositionMarketToken, IPropositionMarketFactory, IPropositionMarketPool} from "./interfaces/IPropositionMarketFactory.sol";
+import {IPropositionMarketFactory_Def} from "./interfaces/IPropositionMarketFactory.sol";
+import {IPropositionMarketToken} from "./interfaces/IPropositionMarketToken.sol";
+import {IPropositionMarketPool} from "./interfaces/IPropositionMarketPool.sol";
 
 struct MarketSettings {
     address[] tokenDataList;
 }
 
 struct TokenSettings {
-    address owner;
     string name;
     string symbol;
 }
@@ -32,7 +33,7 @@ contract PropositionMarketFactory is
     PausableUpgradeable,
     AccessControlUpgradeable,
     UUPSUpgradeable,
-    IPropositionMarketFactory
+    IPropositionMarketFactory_Def
 {
     //using LibCWIA for *;
     using LibClone for *;
@@ -261,8 +262,8 @@ contract PropositionMarketFactory is
     function _encodeImmutableArgs(TokenSettings memory args) internal view virtual returns (bytes memory, bytes32) {
         unchecked {
             return (
-                abi.encodePacked(args.owner, args.name.toSmallString(), args.symbol.toSmallString()),
-                keccak256(abi.encode(args.owner, args.name, args.symbol))
+                abi.encodePacked(address(this), args.name.toSmallString(), args.symbol.toSmallString()),
+                keccak256(abi.encode(address(this), args.name, args.symbol))
             );
         }
     }

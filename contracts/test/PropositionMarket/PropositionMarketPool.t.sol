@@ -5,7 +5,8 @@ import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 
 import {PropositionMarketFactory, FactorySettings, TokenSettings, MarketSettings} from "../../src/PropositionMarket/PropositionMarketFactory.sol";
 import {PropositionMarketToken, ERC20, Ownable} from "../../src/PropositionMarket/PropositionMarketToken.sol";
-import {IPropositionMarketToken, IPropositionMarketPool, PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
+import {IPropositionMarketToken, IPropositionMarketPool_Def, PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
+
 import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -50,11 +51,9 @@ contract PropositionMarketPoolTest is Test {
 
         nameAndSymbolList = new TokenSettings[](2);
 
-        nameAndSymbolList[0].owner = address(propositionMarketFactory);
         nameAndSymbolList[0].name = "Test Token One";
         nameAndSymbolList[0].symbol = "TTO";
 
-        nameAndSymbolList[1].owner = address(propositionMarketFactory);
         nameAndSymbolList[1].name = "Test Token Two";
         nameAndSymbolList[1].symbol = "TTT";
     }
@@ -198,7 +197,7 @@ contract PropositionMarketPoolTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IPropositionMarketPool.OwnableUnauthorizedAccount.selector,
+                IPropositionMarketPool_Def.OwnableUnauthorizedAccount.selector,
                 address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8)
             )
         );
@@ -208,7 +207,7 @@ contract PropositionMarketPoolTest is Test {
 
         PropositionMarketPool(pool).pausedPool();
 
-        vm.expectRevert(abi.encodeWithSelector(IPropositionMarketPool.EnforcedPause.selector));
+        vm.expectRevert(abi.encodeWithSelector(IPropositionMarketPool_Def.EnforcedPause.selector));
         PropositionMarketPool(pool).pausedPool();
     }
 

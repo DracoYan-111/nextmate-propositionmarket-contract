@@ -26,23 +26,23 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   log(`当前网络: ${hre.network.name}`);
   log(`部署者地址: ${deployer}`);
 
-  // const poolContract = await deploy('PropositionMarketPool', {
-  //   from: deployer,
-  //   args: [],
-  //   log: true,
-  //   libraries: {
-  //     Price: '0xb17EDc964596f5eeF7B623AfE0EA259e21e4FD90',
-  //   },
-  // });
+  const poolContract = await deploy('PropositionMarketPool', {
+    from: deployer,
+    args: [],
+    log: true,
+    libraries: {
+      Price: '0xb17EDc964596f5eeF7B623AfE0EA259e21e4FD90',
+    },
+  });
 
-  // const tokenContract = await deploy('PropositionMarketToken', {
-  //   from: deployer,
-  //   args: [],
-  //   log: true,
-  // });
+  const tokenContract = await deploy('PropositionMarketToken', {
+    from: deployer,
+    args: [],
+    log: true,
+  });
 
-  // data[1] = poolContract.address;
-  // data[2] = tokenContract.address;
+  data[1] = poolContract.address;
+  data[2] = tokenContract.address;
 
   var dataJson = JSON.stringify(data, null, 2);
   log(`参数信息: ${dataJson}`);

@@ -10,9 +10,11 @@ import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {UUPSUpgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import {IPropositionMarketToken, IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
+import {IPropositionMarketFactory} from "./interfaces/IPropositionMarketFactory.sol";
+import {IPropositionMarketPool_Def} from "./interfaces/IPropositionMarketPool.sol";
+import {IPropositionMarketToken} from "./interfaces/IPropositionMarketToken.sol";
 
-contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initializable, UUPSUpgradeable {
+contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, Initializable, UUPSUpgradeable {
     using Price for *;
     using LibClone for *;
     using LibString for *;
@@ -128,7 +130,7 @@ contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initi
         token.burn(msg.sender, tokenAmount);
 
         // update tvl
-        tvl -= tokenAmount;
+        tvl -= usdtAmount;
 
         // transfer usdt to sender
         if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();

@@ -1053,40 +1053,14 @@ interface IERC20 {
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 }
 
-// File contracts/src/PropositionMarket/interfaces/IPropositionMarketPool.sol
+// File contracts/src/PropositionMarket/interfaces/IPropositionMarketToken.sol
 
 // Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
-interface IPropositionMarketPool {
-    event Paused(bool);
-    event Swap(
-        address indexed sender,
-        uint256 amountIn,
-        uint256 amountOut,
-        address indexed tokenIn,
-        address indexed tokenOut
-    );
-
-    error EnforcedPause();
-    error PaymentFailed();
-    error TimeoutProhibition();
-    error InsufficientBalance();
-    error OwnableUnauthorizedAccount(address);
-    error SlippageFailed(uint256, uint256);
-    error InvalidToken();
-    error ZeroQuantityError();
-}
-
-interface IPropositionMarketFactory {
-    function emitEventTrade(address token, address trader, int256 tokenAmount, uint256 executionPrice) external;
-
-    function getPlatformFee() external view returns (uint256);
-
-    function getFeeRecipient() external view returns (address);
-}
-
 interface IPropositionMarketToken is IERC20 {
+    function transferOwnership(address newOwner) external;
+
     function mint(address to, uint256 amount) external;
 
     function burn(address from, uint256 amount) external;
@@ -1180,6 +1154,67 @@ abstract contract ReentrancyGuard {
     function _reentrancyGuardEntered() internal view returns (bool) {
         return _status == ENTERED;
     }
+}
+
+// File contracts/src/PropositionMarket/interfaces/IPropositionMarketFactory.sol
+
+// Original license: SPDX_License_Identifier: MIT
+pragma solidity ^0.8.23;
+
+interface IPropositionMarketFactory_Def {
+    event CreatePool(address indexed pool);
+    event Trade(
+        address indexed pool,
+        address indexed token,
+        address indexed trader,
+        int256 tokenAmount,
+        uint256 executionPrice
+    );
+
+    error InvalidInput(string[]);
+}
+
+interface IPropositionMarketFactory is IPropositionMarketFactory_Def {
+    function emitEventTrade(address token, address trader, int256 tokenAmount, uint256 executionPrice) external;
+
+    function getPlatformFee() external view returns (uint256);
+
+    function getFeeRecipient() external view returns (address);
+}
+
+// File contracts/src/PropositionMarket/interfaces/IPropositionMarketPool.sol
+
+// Original license: SPDX_License_Identifier: MIT
+pragma solidity ^0.8.23;
+
+interface IPropositionMarketPool_Def {
+    event Paused(bool);
+    event Swap(
+        address indexed sender,
+        uint256 amountIn,
+        uint256 amountOut,
+        address indexed tokenIn,
+        address indexed tokenOut
+    );
+
+    error EnforcedPause();
+    error PaymentFailed();
+    error TimeoutProhibition();
+    error InsufficientBalance();
+    error OwnableUnauthorizedAccount(address);
+    error SlippageFailed(uint256, uint256);
+    error InvalidToken();
+    error ZeroQuantityError();
+}
+
+interface IPropositionMarketPool is IPropositionMarketPool_Def {
+    function upgradeToAndCall(address, bytes memory) external payable;
+
+    function collectPlatformFee(address receiver) external;
+
+    function initialize() external;
+
+    function pausedPool() external;
 }
 
 // File solady/src/utils/FixedPointMathLib.sol
@@ -8438,7 +8473,7 @@ library SSTORE2 {
 // Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
-contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initializable, UUPSUpgradeable {
+contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, Initializable, UUPSUpgradeable {
     using Price for *;
     using LibClone for *;
     using LibString for *;
@@ -8554,7 +8589,7 @@ contract PropositionMarketPool is IPropositionMarketPool, ReentrancyGuard, Initi
         token.burn(msg.sender, tokenAmount);
 
         // update tvl
-        tvl -= tokenAmount;
+        tvl -= usdtAmount;
 
         // transfer usdt to sender
         if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();

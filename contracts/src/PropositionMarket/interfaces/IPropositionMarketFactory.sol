@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-interface IPropositionMarketToken {
-    function transferOwnership(address newOwner) external;
-}
-
-interface IPropositionMarketFactory {
+interface IPropositionMarketFactory_Def {
     event CreatePool(address indexed pool);
     event Trade(
         address indexed pool,
@@ -18,12 +14,10 @@ interface IPropositionMarketFactory {
     error InvalidInput(string[]);
 }
 
-interface IPropositionMarketPool {
-    function upgradeToAndCall(address, bytes memory) external payable;
+interface IPropositionMarketFactory is IPropositionMarketFactory_Def {
+    function emitEventTrade(address token, address trader, int256 tokenAmount, uint256 executionPrice) external;
 
-    function collectPlatformFee(address receiver) external;
+    function getPlatformFee() external view returns (uint256);
 
-    function initialize() external;
-
-    function pausedPool() external;
+    function getFeeRecipient() external view returns (address);
 }

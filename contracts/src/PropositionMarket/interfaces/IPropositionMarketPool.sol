@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
-interface IPropositionMarketPool {
+interface IPropositionMarketPool_Def {
     event Paused(bool);
     event Swap(
         address indexed sender,
@@ -23,16 +21,12 @@ interface IPropositionMarketPool {
     error ZeroQuantityError();
 }
 
-interface IPropositionMarketFactory {
-    function emitEventTrade(address token, address trader, int256 tokenAmount, uint256 executionPrice) external;
+interface IPropositionMarketPool is IPropositionMarketPool_Def {
+    function upgradeToAndCall(address, bytes memory) external payable;
 
-    function getPlatformFee() external view returns (uint256);
+    function collectPlatformFee(address receiver) external;
 
-    function getFeeRecipient() external view returns (address);
-}
+    function initialize() external;
 
-interface IPropositionMarketToken is IERC20 {
-    function mint(address to, uint256 amount) external;
-
-    function burn(address from, uint256 amount) external;
+    function pausedPool() external;
 }
