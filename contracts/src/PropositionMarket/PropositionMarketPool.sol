@@ -3,16 +3,20 @@ pragma solidity ^0.8.23;
 
 import {Price} from "price/src/Price.sol";
 import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
-import {CWIA} from "solady/src/utils/legacy/CWIA.sol";
+import {LibClone} from "solady/src/utils/LibClone.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {UUPSUpgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import {IPropositionMarketToken, IPropositionMarketPool, IPropositionMarketFactory} from "./interfaces/IPropositionMarketPool.sol";
+import {IPropositionMarketFactory} from "./interfaces/IPropositionMarketFactory.sol";
+import {IPropositionMarketPool_Def} from "./interfaces/IPropositionMarketPool.sol";
+import {IPropositionMarketToken} from "./interfaces/IPropositionMarketToken.sol";
 
-contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard {
+contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, Initializable, UUPSUpgradeable {
     using Price for *;
+    using LibClone for *;
     using LibString for *;
     using FixedPointMathLib for *;
 
@@ -20,10 +24,11 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
     bool public paused;
     uint256 public tvl;
 
-    modifier onlyManager() {
-        if (getManagerAddress() != msg.sender) revert OwnableUnauthorizedAccount(msg.sender);
+    modifier onlyFactory() {
+        if (getFactoryAddress() != msg.sender) revert OwnableUnauthorizedAccount(msg.sender);
         _;
     }
+
     modifier whenNotPaused() {
         if (paused) revert EnforcedPause();
         _;
@@ -39,41 +44,13 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         _;
     }
 
-    function buy(
-        IPropositionMarketToken token,
-        uint256 tokenAmount,
-        uint256 maxUsdtProvided,
-        uint256 expireTimestamp
-    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
-        // calculate price and amount
-        (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
-        uint256 tokenPrice = Price.getExecutionPrice(tokenSupply, supplyOther, int256(tokenAmount));
-        uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
+    constructor() {
+        _disableInitializers();
+    }
 
-        // calculate platform fee
-        uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
-        totalPlatformFee += platformFee;
-
-        // transfer usdt from sender
-        uint256 usdtNetAmount = usdtAmount.rawAdd(platformFee);
-        if (usdtNetAmount > maxUsdtProvided) revert SlippageFailed(usdtNetAmount, maxUsdtProvided);
-        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
-
-        // update tvl
-        tvl += usdtNetAmount;
-
-        // mint and transfer token to sender
-        _mintAndTransfer(token, tokenAmount);
-
-        // emit event
-        IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
-            address(token),
-            msg.sender,
-            int256(tokenAmount),
-            tokenPrice
-        );
-
-        return tokenAmount;
+    function initialize() external initializer {
+        // any logic you want at deployment time, eg registering with factory
+        __UUPSUpgradeable_init();
     }
 
     function buy(
@@ -153,7 +130,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         token.burn(msg.sender, tokenAmount);
 
         // update tvl
-        tvl -= usdtNetAmount;
+        tvl -= usdtAmount;
 
         // transfer usdt to sender
         if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
@@ -168,7 +145,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         emit Swap(msg.sender, usdtNetAmount, tokenAmount, address(getPayTokenAddress()), address(token));
     }
 
-    function receivePlatformFee(address receiver) external onlyManager {
+    function collectPlatformFee(address receiver) external onlyFactory {
         if (totalPlatformFee == 0) revert InsufficientBalance();
         uint256 oldTotalPlatformFee = totalPlatformFee;
 
@@ -177,38 +154,27 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         if (!getPayTokenAddress().transfer(receiver, oldTotalPlatformFee)) revert PaymentFailed();
     }
 
-    function pausedPool() external onlyManager {
+    function pausedPool() external onlyFactory {
         if (paused) revert EnforcedPause();
         emit Paused(paused = !paused);
     }
 
-    function getFeeRecipient() external view returns (address) {
-        return IPropositionMarketFactory(getFactoryAddress()).getFeeRecipient();
-    }
-
-    function getOptionListLength() external pure returns (uint256) {
-        return _getArgUint64(0);
-    }
-
-    function calculateSpotPrice(uint256 supply, uint256 supplyOther) external pure returns (uint256) {
-        return Price.getSpotPrice(supply, supplyOther);
-    }
-
-    function calculateExecutionPrice(
-        uint256 supply,
-        uint256 supplyOther,
-        int256 amountChanged
-    ) external pure returns (uint256) {
-        return Price.getExecutionPrice(supply, supplyOther, amountChanged);
+    function getOptionListLength() public view returns (uint256 length) {
+        bytes memory data = address(this).argsOnERC1967(0, 8);
+        assembly {
+            length := shr(192, mload(add(data, 32))) // 取低8字节
+        }
+        return length;
     }
 
     function getOptionList() public view returns (address[] memory) {
         unchecked {
-            address dataPointer = _getArgAddress(8);
+            uint256 length = getOptionListLength();
+            address dataPointer = _bytesToAddressExact(address(this).argsOnERC1967(8, 28));
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
 
-            address[] memory sliced = new address[](_getArgUint64(0));
-            for (uint256 i = 0; i < _getArgUint64(0); ++i) {
+            address[] memory sliced = new address[](length);
+            for (uint256 i = 0; i < length; ++i) {
                 sliced[i] = fullList[i];
             }
 
@@ -218,23 +184,15 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
 
     function getFactoryAddress() public view returns (address) {
         unchecked {
-            address dataPointer = _getArgAddress(8);
+            address dataPointer = _bytesToAddressExact(address(this).argsOnERC1967(8, 28));
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
             return fullList[fullList.length - 3];
         }
     }
 
-    function getManagerAddress() public view returns (address) {
-        unchecked {
-            address dataPointer = _getArgAddress(8);
-            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
-            return fullList[fullList.length - 2];
-        }
-    }
-
     function getPayTokenAddress() public view returns (IERC20) {
         unchecked {
-            address dataPointer = _getArgAddress(8);
+            address dataPointer = _bytesToAddressExact(address(this).argsOnERC1967(8, 28));
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
             return IERC20(fullList[fullList.length - 1]);
         }
@@ -270,35 +228,17 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         );
     }
 
-    function getApproximatePrice(
-        address token,
-        uint256 usdtAmount
-    ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
-        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(
-            supply,
-            supplyOther,
-            usdtAmount,
-            Price.DEFAULT_APPROXIMATION_PRECISION,
-            Price.DEFAULT_MAX_ITERATIONS
-        );
-    }
-
-    function getPoolTitle() public pure returns (string memory) {
+    function getPoolTitle() public view returns (string memory) {
         unchecked {
-            return _getArgBytes32(28).fromSmallString();
+            return _bytesToBytes32(address(this).argsOnERC1967(28, 60)).fromSmallString();
         }
     }
 
-    function getPoolVersion() public pure returns (string memory) {
-        unchecked {
-            return _getArgBytes32(60).fromSmallString();
-        }
-    }
+    function _authorizeUpgrade(address newImplementation) internal override onlyFactory {}
 
     function _mintAndTransfer(IPropositionMarketToken token, uint256 tokenAmount) internal {
-        token.mint(address(this), tokenAmount);
-        if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
+        token.mint(msg.sender, tokenAmount);
+        // if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
     }
 
     function _getSupplies(address token) internal view returns (uint256 supply, uint256 supplyOther) {
@@ -315,5 +255,17 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         }
 
         if (!find) revert InvalidToken();
+    }
+
+    function _bytesToAddressExact(bytes memory data) internal pure returns (address result) {
+        assembly {
+            result := shr(96, mload(add(data, 32))) // shift right 96 bits = 12 bytes = keep low 20 bytes
+        }
+    }
+
+    function _bytesToBytes32(bytes memory data) internal pure returns (bytes32 result) {
+        assembly {
+            result := mload(add(data, 32))
+        }
     }
 }

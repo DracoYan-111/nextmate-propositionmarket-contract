@@ -18,7 +18,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const isTestEnv = process.env.IS_TEST === 'true';
   const mark = isTestEnv ? '测试' : '正式';
-  const deploymentSalt = isTestEnv ? `${contractName}_TESTNETV1` : `${contractName}_MAINNETV1`;
+  const deploymentSalt = isTestEnv ? `${contractName}_TESTNET` : `${contractName}_MAINNET`;
 
   const deterministicDeployment = keccak256(stringToBytes(deploymentSalt));
 

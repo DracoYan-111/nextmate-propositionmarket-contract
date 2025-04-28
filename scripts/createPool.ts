@@ -8,26 +8,23 @@ async function main() {
   const { deployer } = await hre.getNamedAccounts();
   console.log('accounts address: ' + `${GREEN}${deployer}${RESET}\n`);
 
-  const tokenSettings: TokenSettingsStruct[] = [
-    {
-      owner: '0x4b9e4e275B5E826aB710DCdEC6071cb3E3Df1532',
-      name: 'Token A',
-      symbol: 'TKA',
-    },
-    {
-      owner: '0x4b9e4e275B5E826aB710DCdEC6071cb3E3Df1532',
-      name: 'Token B',
-      symbol: 'TKB',
-    },
-  ];
-  const poolTitle = 'Test Pool';
-  const payToken = '0x163aC8C09D41a6Dc90EbF95dCb767D9aDb469f7e';
-  const manager = '0x4b9e4e275B5E826aB710DCdEC6071cb3E3Df1532';
-
-  const factory = '0x4b9e4e275B5E826aB710DCdEC6071cb3E3Df1532'; // PropositionMarketFactory address
+  const factory = '0x2e67fe1480c83ee0e49452f1d51ba82798c71a99'; // PropositionMarketFactory address
   const factoryContract = await hre.ethers.getContractAt('PropositionMarketFactory', factory); // Specify here your contract name
 
-  const tx = await factoryContract.createContracts(tokenSettings, poolTitle, payToken, manager);
+  const tokenSettings: TokenSettingsStruct[] = [
+    {
+      name: 'love blackpink',
+      symbol: 'BLACK',
+    },
+    {
+      name: 'love bts',
+      symbol: 'BTS',
+    },
+  ];
+  const poolTitle = 'BLACK VS BTS Two';
+  const payToken = '0x163aC8C09D41a6Dc90EbF95dCb767D9aDb469f7e';
+
+  const tx = await factoryContract.createContracts(tokenSettings, poolTitle, payToken);
   console.log('The transaction hash is: ' + `${GREEN}${tx.hash}${RESET}\n`);
   console.log('Waiting until the transaction is confirmed...\n');
   const receipt = await tx.wait(); // Wait until the transaction is confirmed

@@ -1,7 +1,975 @@
-[37m2025-04-22 16:57:37.909[39m[0m[0m [33m[1mWARN[22m[39m[0m[0m [1m[37mService[39m[22m[0m[0m =>Tenderly config doesn't exist, empty string values are returned instead.
 // Sources flattened with hardhat v2.22.19 https://hardhat.org
 
 // SPDX-License-Identifier: MIT
+
+// File @openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol@v5.3.0
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.3.0) (proxy/utils/Initializable.sol)
+
+pragma solidity ^0.8.20;
+
+/**
+ * @dev This is a base contract to aid in writing upgradeable contracts, or any kind of contract that will be deployed
+ * behind a proxy. Since proxied contracts do not make use of a constructor, it's common to move constructor logic to an
+ * external initializer function, usually called `initialize`. It then becomes necessary to protect this initializer
+ * function so it can only be called once. The {initializer} modifier provided by this contract will have this effect.
+ *
+ * The initialization functions use a version number. Once a version number is used, it is consumed and cannot be
+ * reused. This mechanism prevents re-execution of each "step" but allows the creation of new initialization steps in
+ * case an upgrade adds a module that needs to be initialized.
+ *
+ * For example:
+ *
+ * [.hljs-theme-light.nopadding]
+ * ```solidity
+ * contract MyToken is ERC20Upgradeable {
+ *     function initialize() initializer public {
+ *         __ERC20_init("MyToken", "MTK");
+ *     }
+ * }
+ *
+ * contract MyTokenV2 is MyToken, ERC20PermitUpgradeable {
+ *     function initializeV2() reinitializer(2) public {
+ *         __ERC20Permit_init("MyToken");
+ *     }
+ * }
+ * ```
+ *
+ * TIP: To avoid leaving the proxy in an uninitialized state, the initializer function should be called as early as
+ * possible by providing the encoded function call as the `_data` argument to {ERC1967Proxy-constructor}.
+ *
+ * CAUTION: When used with inheritance, manual care must be taken to not invoke a parent initializer twice, or to ensure
+ * that all initializers are idempotent. This is not verified automatically as constructors are by Solidity.
+ *
+ * [CAUTION]
+ * ====
+ * Avoid leaving a contract uninitialized.
+ *
+ * An uninitialized contract can be taken over by an attacker. This applies to both a proxy and its implementation
+ * contract, which may impact the proxy. To prevent the implementation contract from being used, you should invoke
+ * the {_disableInitializers} function in the constructor to automatically lock it when it is deployed:
+ *
+ * [.hljs-theme-light.nopadding]
+ * ```
+ * /// @custom:oz-upgrades-unsafe-allow constructor
+ * constructor() {
+ *     _disableInitializers();
+ * }
+ * ```
+ * ====
+ */
+abstract contract Initializable {
+    /**
+     * @dev Storage of the initializable contract.
+     *
+     * It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions
+     * when using with upgradeable contracts.
+     *
+     * @custom:storage-location erc7201:openzeppelin.storage.Initializable
+     */
+    struct InitializableStorage {
+        /**
+         * @dev Indicates that the contract has been initialized.
+         */
+        uint64 _initialized;
+        /**
+         * @dev Indicates that the contract is in the process of being initialized.
+         */
+        bool _initializing;
+    }
+
+    // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant INITIALIZABLE_STORAGE = 0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00;
+
+    /**
+     * @dev The contract is already initialized.
+     */
+    error InvalidInitialization();
+
+    /**
+     * @dev The contract is not initializing.
+     */
+    error NotInitializing();
+
+    /**
+     * @dev Triggered when the contract has been initialized or reinitialized.
+     */
+    event Initialized(uint64 version);
+
+    /**
+     * @dev A modifier that defines a protected initializer function that can be invoked at most once. In its scope,
+     * `onlyInitializing` functions can be used to initialize parent contracts.
+     *
+     * Similar to `reinitializer(1)`, except that in the context of a constructor an `initializer` may be invoked any
+     * number of times. This behavior in the constructor can be useful during testing and is not expected to be used in
+     * production.
+     *
+     * Emits an {Initialized} event.
+     */
+    modifier initializer() {
+        // solhint-disable-next-line var-name-mixedcase
+        InitializableStorage storage $ = _getInitializableStorage();
+
+        // Cache values to avoid duplicated sloads
+        bool isTopLevelCall = !$._initializing;
+        uint64 initialized = $._initialized;
+
+        // Allowed calls:
+        // - initialSetup: the contract is not in the initializing state and no previous version was
+        //                 initialized
+        // - construction: the contract is initialized at version 1 (no reinitialization) and the
+        //                 current contract is just being deployed
+        bool initialSetup = initialized == 0 && isTopLevelCall;
+        bool construction = initialized == 1 && address(this).code.length == 0;
+
+        if (!initialSetup && !construction) {
+            revert InvalidInitialization();
+        }
+        $._initialized = 1;
+        if (isTopLevelCall) {
+            $._initializing = true;
+        }
+        _;
+        if (isTopLevelCall) {
+            $._initializing = false;
+            emit Initialized(1);
+        }
+    }
+
+    /**
+     * @dev A modifier that defines a protected reinitializer function that can be invoked at most once, and only if the
+     * contract hasn't been initialized to a greater version before. In its scope, `onlyInitializing` functions can be
+     * used to initialize parent contracts.
+     *
+     * A reinitializer may be used after the original initialization step. This is essential to configure modules that
+     * are added through upgrades and that require initialization.
+     *
+     * When `version` is 1, this modifier is similar to `initializer`, except that functions marked with `reinitializer`
+     * cannot be nested. If one is invoked in the context of another, execution will revert.
+     *
+     * Note that versions can jump in increments greater than 1; this implies that if multiple reinitializers coexist in
+     * a contract, executing them in the right order is up to the developer or operator.
+     *
+     * WARNING: Setting the version to 2**64 - 1 will prevent any future reinitialization.
+     *
+     * Emits an {Initialized} event.
+     */
+    modifier reinitializer(uint64 version) {
+        // solhint-disable-next-line var-name-mixedcase
+        InitializableStorage storage $ = _getInitializableStorage();
+
+        if ($._initializing || $._initialized >= version) {
+            revert InvalidInitialization();
+        }
+        $._initialized = version;
+        $._initializing = true;
+        _;
+        $._initializing = false;
+        emit Initialized(version);
+    }
+
+    /**
+     * @dev Modifier to protect an initialization function so that it can only be invoked by functions with the
+     * {initializer} and {reinitializer} modifiers, directly or indirectly.
+     */
+    modifier onlyInitializing() {
+        _checkInitializing();
+        _;
+    }
+
+    /**
+     * @dev Reverts if the contract is not in an initializing state. See {onlyInitializing}.
+     */
+    function _checkInitializing() internal view virtual {
+        if (!_isInitializing()) {
+            revert NotInitializing();
+        }
+    }
+
+    /**
+     * @dev Locks the contract, preventing any future reinitialization. This cannot be part of an initializer call.
+     * Calling this in the constructor of a contract will prevent that contract from being initialized or reinitialized
+     * to any version. It is recommended to use this to lock implementation contracts that are designed to be called
+     * through proxies.
+     *
+     * Emits an {Initialized} event the first time it is successfully executed.
+     */
+    function _disableInitializers() internal virtual {
+        // solhint-disable-next-line var-name-mixedcase
+        InitializableStorage storage $ = _getInitializableStorage();
+
+        if ($._initializing) {
+            revert InvalidInitialization();
+        }
+        if ($._initialized != type(uint64).max) {
+            $._initialized = type(uint64).max;
+            emit Initialized(type(uint64).max);
+        }
+    }
+
+    /**
+     * @dev Returns the highest version that has been initialized. See {reinitializer}.
+     */
+    function _getInitializedVersion() internal view returns (uint64) {
+        return _getInitializableStorage()._initialized;
+    }
+
+    /**
+     * @dev Returns `true` if the contract is currently initializing. See {onlyInitializing}.
+     */
+    function _isInitializing() internal view returns (bool) {
+        return _getInitializableStorage()._initializing;
+    }
+
+    /**
+     * @dev Pointer to storage slot. Allows integrators to override it with a custom storage location.
+     *
+     * NOTE: Consider following the ERC-7201 formula to derive storage locations.
+     */
+    function _initializableStorageSlot() internal pure virtual returns (bytes32) {
+        return INITIALIZABLE_STORAGE;
+    }
+
+    /**
+     * @dev Returns a pointer to the storage namespace.
+     */
+    // solhint-disable-next-line var-name-mixedcase
+    function _getInitializableStorage() private pure returns (InitializableStorage storage $) {
+        bytes32 slot = _initializableStorageSlot();
+        assembly {
+            $.slot := slot
+        }
+    }
+}
+
+// File @openzeppelin/contracts/interfaces/draft-IERC1822.sol@v5.2.0
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.1.0) (interfaces/draft-IERC1822.sol)
+
+pragma solidity ^0.8.20;
+
+/**
+ * @dev ERC-1822: Universal Upgradeable Proxy Standard (UUPS) documents a method for upgradeability through a simplified
+ * proxy whose upgrades are fully controlled by the current implementation.
+ */
+interface IERC1822Proxiable {
+    /**
+     * @dev Returns the storage slot that the proxiable contract assumes is being used to store the implementation
+     * address.
+     *
+     * IMPORTANT: A proxy pointing at a proxiable contract should not be considered proxiable itself, because this risks
+     * bricking a proxy that upgrades to it, by delegating to itself until out of gas. Thus it is critical that this
+     * function revert if invoked through a proxy.
+     */
+    function proxiableUUID() external view returns (bytes32);
+}
+
+// File @openzeppelin/contracts/interfaces/IERC1967.sol@v5.2.0
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.0.0) (interfaces/IERC1967.sol)
+
+pragma solidity ^0.8.20;
+
+/**
+ * @dev ERC-1967: Proxy Storage Slots. This interface contains the events defined in the ERC.
+ */
+interface IERC1967 {
+    /**
+     * @dev Emitted when the implementation is upgraded.
+     */
+    event Upgraded(address indexed implementation);
+
+    /**
+     * @dev Emitted when the admin account has changed.
+     */
+    event AdminChanged(address previousAdmin, address newAdmin);
+
+    /**
+     * @dev Emitted when the beacon is changed.
+     */
+    event BeaconUpgraded(address indexed beacon);
+}
+
+// File @openzeppelin/contracts/proxy/beacon/IBeacon.sol@v5.2.0
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.0.0) (proxy/beacon/IBeacon.sol)
+
+pragma solidity ^0.8.20;
+
+/**
+ * @dev This is the interface that {BeaconProxy} expects of its beacon.
+ */
+interface IBeacon {
+    /**
+     * @dev Must return an address that can be used as a delegate call target.
+     *
+     * {UpgradeableBeacon} will check that this address is a contract.
+     */
+    function implementation() external view returns (address);
+}
+
+// File @openzeppelin/contracts/utils/Errors.sol@v5.2.0
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.1.0) (utils/Errors.sol)
+
+pragma solidity ^0.8.20;
+
+/**
+ * @dev Collection of common custom errors used in multiple contracts
+ *
+ * IMPORTANT: Backwards compatibility is not guaranteed in future versions of the library.
+ * It is recommended to avoid relying on the error API for critical functionality.
+ *
+ * _Available since v5.1._
+ */
+library Errors {
+    /**
+     * @dev The ETH balance of the account is not enough to perform the operation.
+     */
+    error InsufficientBalance(uint256 balance, uint256 needed);
+
+    /**
+     * @dev A call to an address target failed. The target may have reverted.
+     */
+    error FailedCall();
+
+    /**
+     * @dev The deployment failed.
+     */
+    error FailedDeployment();
+
+    /**
+     * @dev A necessary precompile is missing.
+     */
+    error MissingPrecompile(address);
+}
+
+// File @openzeppelin/contracts/utils/Address.sol@v5.2.0
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.2.0) (utils/Address.sol)
+
+pragma solidity ^0.8.20;
+
+/**
+ * @dev Collection of functions related to the address type
+ */
+library Address {
+    /**
+     * @dev There's no code at `target` (it is not a contract).
+     */
+    error AddressEmptyCode(address target);
+
+    /**
+     * @dev Replacement for Solidity's `transfer`: sends `amount` wei to
+     * `recipient`, forwarding all available gas and reverting on errors.
+     *
+     * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost
+     * of certain opcodes, possibly making contracts go over the 2300 gas limit
+     * imposed by `transfer`, making them unable to receive funds via
+     * `transfer`. {sendValue} removes this limitation.
+     *
+     * https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now/[Learn more].
+     *
+     * IMPORTANT: because control is transferred to `recipient`, care must be
+     * taken to not create reentrancy vulnerabilities. Consider using
+     * {ReentrancyGuard} or the
+     * https://solidity.readthedocs.io/en/v0.8.20/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
+     */
+    function sendValue(address payable recipient, uint256 amount) internal {
+        if (address(this).balance < amount) {
+            revert Errors.InsufficientBalance(address(this).balance, amount);
+        }
+
+        (bool success, bytes memory returndata) = recipient.call{value: amount}("");
+        if (!success) {
+            _revert(returndata);
+        }
+    }
+
+    /**
+     * @dev Performs a Solidity function call using a low level `call`. A
+     * plain `call` is an unsafe replacement for a function call: use this
+     * function instead.
+     *
+     * If `target` reverts with a revert reason or custom error, it is bubbled
+     * up by this function (like regular Solidity function calls). However, if
+     * the call reverted with no returned reason, this function reverts with a
+     * {Errors.FailedCall} error.
+     *
+     * Returns the raw returned data. To convert to the expected return value,
+     * use https://solidity.readthedocs.io/en/latest/units-and-global-variables.html?highlight=abi.decode#abi-encoding-and-decoding-functions[`abi.decode`].
+     *
+     * Requirements:
+     *
+     * - `target` must be a contract.
+     * - calling `target` with `data` must not revert.
+     */
+    function functionCall(address target, bytes memory data) internal returns (bytes memory) {
+        return functionCallWithValue(target, data, 0);
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+     * but also transferring `value` wei to `target`.
+     *
+     * Requirements:
+     *
+     * - the calling contract must have an ETH balance of at least `value`.
+     * - the called Solidity function must be `payable`.
+     */
+    function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {
+        if (address(this).balance < value) {
+            revert Errors.InsufficientBalance(address(this).balance, value);
+        }
+        (bool success, bytes memory returndata) = target.call{value: value}(data);
+        return verifyCallResultFromTarget(target, success, returndata);
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+     * but performing a static call.
+     */
+    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {
+        (bool success, bytes memory returndata) = target.staticcall(data);
+        return verifyCallResultFromTarget(target, success, returndata);
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+     * but performing a delegate call.
+     */
+    function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {
+        (bool success, bytes memory returndata) = target.delegatecall(data);
+        return verifyCallResultFromTarget(target, success, returndata);
+    }
+
+    /**
+     * @dev Tool to verify that a low level call to smart-contract was successful, and reverts if the target
+     * was not a contract or bubbling up the revert reason (falling back to {Errors.FailedCall}) in case
+     * of an unsuccessful call.
+     */
+    function verifyCallResultFromTarget(
+        address target,
+        bool success,
+        bytes memory returndata
+    ) internal view returns (bytes memory) {
+        if (!success) {
+            _revert(returndata);
+        } else {
+            // only check if target is a contract if the call was successful and the return data is empty
+            // otherwise we already know that it was a contract
+            if (returndata.length == 0 && target.code.length == 0) {
+                revert AddressEmptyCode(target);
+            }
+            return returndata;
+        }
+    }
+
+    /**
+     * @dev Tool to verify that a low level call was successful, and reverts if it wasn't, either by bubbling the
+     * revert reason or with a default {Errors.FailedCall} error.
+     */
+    function verifyCallResult(bool success, bytes memory returndata) internal pure returns (bytes memory) {
+        if (!success) {
+            _revert(returndata);
+        } else {
+            return returndata;
+        }
+    }
+
+    /**
+     * @dev Reverts with returndata if present. Otherwise reverts with {Errors.FailedCall}.
+     */
+    function _revert(bytes memory returndata) private pure {
+        // Look for revert reason and bubble it up if present
+        if (returndata.length > 0) {
+            // The easiest way to bubble the revert reason is using memory via assembly
+            assembly ("memory-safe") {
+                let returndata_size := mload(returndata)
+                revert(add(32, returndata), returndata_size)
+            }
+        } else {
+            revert Errors.FailedCall();
+        }
+    }
+}
+
+// File @openzeppelin/contracts/utils/StorageSlot.sol@v5.2.0
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.1.0) (utils/StorageSlot.sol)
+// This file was procedurally generated from scripts/generate/templates/StorageSlot.js.
+
+pragma solidity ^0.8.20;
+
+/**
+ * @dev Library for reading and writing primitive types to specific storage slots.
+ *
+ * Storage slots are often used to avoid storage conflict when dealing with upgradeable contracts.
+ * This library helps with reading and writing to such slots without the need for inline assembly.
+ *
+ * The functions in this library return Slot structs that contain a `value` member that can be used to read or write.
+ *
+ * Example usage to set ERC-1967 implementation slot:
+ * ```solidity
+ * contract ERC1967 {
+ *     // Define the slot. Alternatively, use the SlotDerivation library to derive the slot.
+ *     bytes32 internal constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+ *
+ *     function _getImplementation() internal view returns (address) {
+ *         return StorageSlot.getAddressSlot(_IMPLEMENTATION_SLOT).value;
+ *     }
+ *
+ *     function _setImplementation(address newImplementation) internal {
+ *         require(newImplementation.code.length > 0);
+ *         StorageSlot.getAddressSlot(_IMPLEMENTATION_SLOT).value = newImplementation;
+ *     }
+ * }
+ * ```
+ *
+ * TIP: Consider using this library along with {SlotDerivation}.
+ */
+library StorageSlot {
+    struct AddressSlot {
+        address value;
+    }
+
+    struct BooleanSlot {
+        bool value;
+    }
+
+    struct Bytes32Slot {
+        bytes32 value;
+    }
+
+    struct Uint256Slot {
+        uint256 value;
+    }
+
+    struct Int256Slot {
+        int256 value;
+    }
+
+    struct StringSlot {
+        string value;
+    }
+
+    struct BytesSlot {
+        bytes value;
+    }
+
+    /**
+     * @dev Returns an `AddressSlot` with member `value` located at `slot`.
+     */
+    function getAddressSlot(bytes32 slot) internal pure returns (AddressSlot storage r) {
+        assembly ("memory-safe") {
+            r.slot := slot
+        }
+    }
+
+    /**
+     * @dev Returns a `BooleanSlot` with member `value` located at `slot`.
+     */
+    function getBooleanSlot(bytes32 slot) internal pure returns (BooleanSlot storage r) {
+        assembly ("memory-safe") {
+            r.slot := slot
+        }
+    }
+
+    /**
+     * @dev Returns a `Bytes32Slot` with member `value` located at `slot`.
+     */
+    function getBytes32Slot(bytes32 slot) internal pure returns (Bytes32Slot storage r) {
+        assembly ("memory-safe") {
+            r.slot := slot
+        }
+    }
+
+    /**
+     * @dev Returns a `Uint256Slot` with member `value` located at `slot`.
+     */
+    function getUint256Slot(bytes32 slot) internal pure returns (Uint256Slot storage r) {
+        assembly ("memory-safe") {
+            r.slot := slot
+        }
+    }
+
+    /**
+     * @dev Returns a `Int256Slot` with member `value` located at `slot`.
+     */
+    function getInt256Slot(bytes32 slot) internal pure returns (Int256Slot storage r) {
+        assembly ("memory-safe") {
+            r.slot := slot
+        }
+    }
+
+    /**
+     * @dev Returns a `StringSlot` with member `value` located at `slot`.
+     */
+    function getStringSlot(bytes32 slot) internal pure returns (StringSlot storage r) {
+        assembly ("memory-safe") {
+            r.slot := slot
+        }
+    }
+
+    /**
+     * @dev Returns an `StringSlot` representation of the string storage pointer `store`.
+     */
+    function getStringSlot(string storage store) internal pure returns (StringSlot storage r) {
+        assembly ("memory-safe") {
+            r.slot := store.slot
+        }
+    }
+
+    /**
+     * @dev Returns a `BytesSlot` with member `value` located at `slot`.
+     */
+    function getBytesSlot(bytes32 slot) internal pure returns (BytesSlot storage r) {
+        assembly ("memory-safe") {
+            r.slot := slot
+        }
+    }
+
+    /**
+     * @dev Returns an `BytesSlot` representation of the bytes storage pointer `store`.
+     */
+    function getBytesSlot(bytes storage store) internal pure returns (BytesSlot storage r) {
+        assembly ("memory-safe") {
+            r.slot := store.slot
+        }
+    }
+}
+
+// File @openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol@v5.2.0
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.2.0) (proxy/ERC1967/ERC1967Utils.sol)
+
+pragma solidity ^0.8.22;
+
+/**
+ * @dev This library provides getters and event emitting update functions for
+ * https://eips.ethereum.org/EIPS/eip-1967[ERC-1967] slots.
+ */
+library ERC1967Utils {
+    /**
+     * @dev Storage slot with the address of the current implementation.
+     * This is the keccak-256 hash of "eip1967.proxy.implementation" subtracted by 1.
+     */
+    // solhint-disable-next-line private-vars-leading-underscore
+    bytes32 internal constant IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+
+    /**
+     * @dev The `implementation` of the proxy is invalid.
+     */
+    error ERC1967InvalidImplementation(address implementation);
+
+    /**
+     * @dev The `admin` of the proxy is invalid.
+     */
+    error ERC1967InvalidAdmin(address admin);
+
+    /**
+     * @dev The `beacon` of the proxy is invalid.
+     */
+    error ERC1967InvalidBeacon(address beacon);
+
+    /**
+     * @dev An upgrade function sees `msg.value > 0` that may be lost.
+     */
+    error ERC1967NonPayable();
+
+    /**
+     * @dev Returns the current implementation address.
+     */
+    function getImplementation() internal view returns (address) {
+        return StorageSlot.getAddressSlot(IMPLEMENTATION_SLOT).value;
+    }
+
+    /**
+     * @dev Stores a new address in the ERC-1967 implementation slot.
+     */
+    function _setImplementation(address newImplementation) private {
+        if (newImplementation.code.length == 0) {
+            revert ERC1967InvalidImplementation(newImplementation);
+        }
+        StorageSlot.getAddressSlot(IMPLEMENTATION_SLOT).value = newImplementation;
+    }
+
+    /**
+     * @dev Performs implementation upgrade with additional setup call if data is nonempty.
+     * This function is payable only if the setup call is performed, otherwise `msg.value` is rejected
+     * to avoid stuck value in the contract.
+     *
+     * Emits an {IERC1967-Upgraded} event.
+     */
+    function upgradeToAndCall(address newImplementation, bytes memory data) internal {
+        _setImplementation(newImplementation);
+        emit IERC1967.Upgraded(newImplementation);
+
+        if (data.length > 0) {
+            Address.functionDelegateCall(newImplementation, data);
+        } else {
+            _checkNonPayable();
+        }
+    }
+
+    /**
+     * @dev Storage slot with the admin of the contract.
+     * This is the keccak-256 hash of "eip1967.proxy.admin" subtracted by 1.
+     */
+    // solhint-disable-next-line private-vars-leading-underscore
+    bytes32 internal constant ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
+
+    /**
+     * @dev Returns the current admin.
+     *
+     * TIP: To get this value clients can read directly from the storage slot shown below (specified by ERC-1967) using
+     * the https://eth.wiki/json-rpc/API#eth_getstorageat[`eth_getStorageAt`] RPC call.
+     * `0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103`
+     */
+    function getAdmin() internal view returns (address) {
+        return StorageSlot.getAddressSlot(ADMIN_SLOT).value;
+    }
+
+    /**
+     * @dev Stores a new address in the ERC-1967 admin slot.
+     */
+    function _setAdmin(address newAdmin) private {
+        if (newAdmin == address(0)) {
+            revert ERC1967InvalidAdmin(address(0));
+        }
+        StorageSlot.getAddressSlot(ADMIN_SLOT).value = newAdmin;
+    }
+
+    /**
+     * @dev Changes the admin of the proxy.
+     *
+     * Emits an {IERC1967-AdminChanged} event.
+     */
+    function changeAdmin(address newAdmin) internal {
+        emit IERC1967.AdminChanged(getAdmin(), newAdmin);
+        _setAdmin(newAdmin);
+    }
+
+    /**
+     * @dev The storage slot of the UpgradeableBeacon contract which defines the implementation for this proxy.
+     * This is the keccak-256 hash of "eip1967.proxy.beacon" subtracted by 1.
+     */
+    // solhint-disable-next-line private-vars-leading-underscore
+    bytes32 internal constant BEACON_SLOT = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
+
+    /**
+     * @dev Returns the current beacon.
+     */
+    function getBeacon() internal view returns (address) {
+        return StorageSlot.getAddressSlot(BEACON_SLOT).value;
+    }
+
+    /**
+     * @dev Stores a new beacon in the ERC-1967 beacon slot.
+     */
+    function _setBeacon(address newBeacon) private {
+        if (newBeacon.code.length == 0) {
+            revert ERC1967InvalidBeacon(newBeacon);
+        }
+
+        StorageSlot.getAddressSlot(BEACON_SLOT).value = newBeacon;
+
+        address beaconImplementation = IBeacon(newBeacon).implementation();
+        if (beaconImplementation.code.length == 0) {
+            revert ERC1967InvalidImplementation(beaconImplementation);
+        }
+    }
+
+    /**
+     * @dev Change the beacon and trigger a setup call if data is nonempty.
+     * This function is payable only if the setup call is performed, otherwise `msg.value` is rejected
+     * to avoid stuck value in the contract.
+     *
+     * Emits an {IERC1967-BeaconUpgraded} event.
+     *
+     * CAUTION: Invoking this function has no effect on an instance of {BeaconProxy} since v5, since
+     * it uses an immutable beacon without looking at the value of the ERC-1967 beacon slot for
+     * efficiency.
+     */
+    function upgradeBeaconToAndCall(address newBeacon, bytes memory data) internal {
+        _setBeacon(newBeacon);
+        emit IERC1967.BeaconUpgraded(newBeacon);
+
+        if (data.length > 0) {
+            Address.functionDelegateCall(IBeacon(newBeacon).implementation(), data);
+        } else {
+            _checkNonPayable();
+        }
+    }
+
+    /**
+     * @dev Reverts if `msg.value` is not zero. It can be used to avoid `msg.value` stuck in the contract
+     * if an upgrade doesn't perform an initialization call.
+     */
+    function _checkNonPayable() private {
+        if (msg.value > 0) {
+            revert ERC1967NonPayable();
+        }
+    }
+}
+
+// File @openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol@v5.3.0
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.3.0) (proxy/utils/UUPSUpgradeable.sol)
+
+pragma solidity ^0.8.22;
+
+/**
+ * @dev An upgradeability mechanism designed for UUPS proxies. The functions included here can perform an upgrade of an
+ * {ERC1967Proxy}, when this contract is set as the implementation behind such a proxy.
+ *
+ * A security mechanism ensures that an upgrade does not turn off upgradeability accidentally, although this risk is
+ * reinstated if the upgrade retains upgradeability but removes the security mechanism, e.g. by replacing
+ * `UUPSUpgradeable` with a custom implementation of upgrades.
+ *
+ * The {_authorizeUpgrade} function must be overridden to include access restriction to the upgrade mechanism.
+ */
+abstract contract UUPSUpgradeable is Initializable, IERC1822Proxiable {
+    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+    address private immutable __self = address(this);
+
+    /**
+     * @dev The version of the upgrade interface of the contract. If this getter is missing, both `upgradeTo(address)`
+     * and `upgradeToAndCall(address,bytes)` are present, and `upgradeTo` must be used if no function should be called,
+     * while `upgradeToAndCall` will invoke the `receive` function if the second argument is the empty byte string.
+     * If the getter returns `"5.0.0"`, only `upgradeToAndCall(address,bytes)` is present, and the second argument must
+     * be the empty byte string if no function should be called, making it impossible to invoke the `receive` function
+     * during an upgrade.
+     */
+    string public constant UPGRADE_INTERFACE_VERSION = "5.0.0";
+
+    /**
+     * @dev The call is from an unauthorized context.
+     */
+    error UUPSUnauthorizedCallContext();
+
+    /**
+     * @dev The storage `slot` is unsupported as a UUID.
+     */
+    error UUPSUnsupportedProxiableUUID(bytes32 slot);
+
+    /**
+     * @dev Check that the execution is being performed through a delegatecall call and that the execution context is
+     * a proxy contract with an implementation (as defined in ERC-1967) pointing to self. This should only be the case
+     * for UUPS and transparent proxies that are using the current contract as their implementation. Execution of a
+     * function through ERC-1167 minimal proxies (clones) would not normally pass this test, but is not guaranteed to
+     * fail.
+     */
+    modifier onlyProxy() {
+        _checkProxy();
+        _;
+    }
+
+    /**
+     * @dev Check that the execution is not being performed through a delegate call. This allows a function to be
+     * callable on the implementing contract but not through proxies.
+     */
+    modifier notDelegated() {
+        _checkNotDelegated();
+        _;
+    }
+
+    function __UUPSUpgradeable_init() internal onlyInitializing {}
+
+    function __UUPSUpgradeable_init_unchained() internal onlyInitializing {}
+
+    /**
+     * @dev Implementation of the ERC-1822 {proxiableUUID} function. This returns the storage slot used by the
+     * implementation. It is used to validate the implementation's compatibility when performing an upgrade.
+     *
+     * IMPORTANT: A proxy pointing at a proxiable contract should not be considered proxiable itself, because this risks
+     * bricking a proxy that upgrades to it, by delegating to itself until out of gas. Thus it is critical that this
+     * function revert if invoked through a proxy. This is guaranteed by the `notDelegated` modifier.
+     */
+    function proxiableUUID() external view virtual notDelegated returns (bytes32) {
+        return ERC1967Utils.IMPLEMENTATION_SLOT;
+    }
+
+    /**
+     * @dev Upgrade the implementation of the proxy to `newImplementation`, and subsequently execute the function call
+     * encoded in `data`.
+     *
+     * Calls {_authorizeUpgrade}.
+     *
+     * Emits an {Upgraded} event.
+     *
+     * @custom:oz-upgrades-unsafe-allow-reachable delegatecall
+     */
+    function upgradeToAndCall(address newImplementation, bytes memory data) public payable virtual onlyProxy {
+        _authorizeUpgrade(newImplementation);
+        _upgradeToAndCallUUPS(newImplementation, data);
+    }
+
+    /**
+     * @dev Reverts if the execution is not performed via delegatecall or the execution
+     * context is not of a proxy with an ERC-1967 compliant implementation pointing to self.
+     */
+    function _checkProxy() internal view virtual {
+        if (
+            address(this) == __self || // Must be called through delegatecall
+            ERC1967Utils.getImplementation() != __self // Must be called through an active proxy
+        ) {
+            revert UUPSUnauthorizedCallContext();
+        }
+    }
+
+    /**
+     * @dev Reverts if the execution is performed via delegatecall.
+     * See {notDelegated}.
+     */
+    function _checkNotDelegated() internal view virtual {
+        if (address(this) != __self) {
+            // Must not be called through delegatecall
+            revert UUPSUnauthorizedCallContext();
+        }
+    }
+
+    /**
+     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract. Called by
+     * {upgradeToAndCall}.
+     *
+     * Normally, this function will use an xref:access.adoc[access control] modifier such as {Ownable-onlyOwner}.
+     *
+     * ```solidity
+     * function _authorizeUpgrade(address) internal onlyOwner {}
+     * ```
+     */
+    function _authorizeUpgrade(address newImplementation) internal virtual;
+
+    /**
+     * @dev Performs an implementation upgrade with a security check for UUPS proxies, and additional setup call.
+     *
+     * As a security check, {proxiableUUID} is invoked in the new implementation, and the return value
+     * is expected to be the implementation slot in ERC-1967.
+     *
+     * Emits an {IERC1967-Upgraded} event.
+     */
+    function _upgradeToAndCallUUPS(address newImplementation, bytes memory data) private {
+        try IERC1822Proxiable(newImplementation).proxiableUUID() returns (bytes32 slot) {
+            if (slot != ERC1967Utils.IMPLEMENTATION_SLOT) {
+                revert UUPSUnsupportedProxiableUUID(slot);
+            }
+            ERC1967Utils.upgradeToAndCall(newImplementation, data);
+        } catch {
+            // The implementation is not UUPS
+            revert ERC1967Utils.ERC1967InvalidImplementation(newImplementation);
+        }
+    }
+}
 
 // File @openzeppelin/contracts/token/ERC20/IERC20.sol@v5.2.0
 
@@ -85,39 +1053,18 @@ interface IERC20 {
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 }
 
-
-// File contracts/src/PropositionMarket/interfaces/IPropositionMarketPool.sol
+// File contracts/src/PropositionMarket/interfaces/IPropositionMarketToken.sol
 
 // Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
-interface IPropositionMarketPool {
-    event Paused(bool);
-
-    error EnforcedPause();
-    error PaymentFailed();
-    error TimeoutProhibition();
-    error InsufficientBalance();
-    error OwnableUnauthorizedAccount(address);
-    error SlippageFailed(uint256, uint256);
-    error InvalidToken();
-    error ZeroQuantityError();
-}
-
-interface IPropositionMarketFactory {
-    function emitEventTrade(address token, address trader, int256 tokenAmount, uint256 executionPrice) external;
-
-    function getPlatformFee() external view returns (uint256);
-
-    function getFeeRecipient() external view returns (address);
-}
-
 interface IPropositionMarketToken is IERC20 {
+    function transferOwnership(address newOwner) external;
+
     function mint(address to, uint256 amount) external;
 
     function burn(address from, uint256 amount) external;
 }
-
 
 // File @openzeppelin/contracts/utils/ReentrancyGuard.sol@v5.2.0
 
@@ -209,6 +1156,66 @@ abstract contract ReentrancyGuard {
     }
 }
 
+// File contracts/src/PropositionMarket/interfaces/IPropositionMarketFactory.sol
+
+// Original license: SPDX_License_Identifier: MIT
+pragma solidity ^0.8.23;
+
+interface IPropositionMarketFactory_Def {
+    event CreatePool(address indexed pool);
+    event Trade(
+        address indexed pool,
+        address indexed token,
+        address indexed trader,
+        int256 tokenAmount,
+        uint256 executionPrice
+    );
+
+    error InvalidInput(string[]);
+}
+
+interface IPropositionMarketFactory is IPropositionMarketFactory_Def {
+    function emitEventTrade(address token, address trader, int256 tokenAmount, uint256 executionPrice) external;
+
+    function getPlatformFee() external view returns (uint256);
+
+    function getFeeRecipient() external view returns (address);
+}
+
+// File contracts/src/PropositionMarket/interfaces/IPropositionMarketPool.sol
+
+// Original license: SPDX_License_Identifier: MIT
+pragma solidity ^0.8.23;
+
+interface IPropositionMarketPool_Def {
+    event Paused(bool);
+    event Swap(
+        address indexed sender,
+        uint256 amountIn,
+        uint256 amountOut,
+        address indexed tokenIn,
+        address indexed tokenOut
+    );
+
+    error EnforcedPause();
+    error PaymentFailed();
+    error TimeoutProhibition();
+    error InsufficientBalance();
+    error OwnableUnauthorizedAccount(address);
+    error SlippageFailed(uint256, uint256);
+    error InvalidToken();
+    error ZeroQuantityError();
+}
+
+interface IPropositionMarketPool is IPropositionMarketPool_Def {
+    function upgradeToAndCall(address, bytes memory) external payable;
+
+    function collectPlatformFee(address receiver) external;
+
+    function initialize() external;
+
+    function pausedPool() external;
+}
 
 // File solady/src/utils/FixedPointMathLib.sol
 
@@ -479,9 +1486,7 @@ library FixedPointMathLib {
             // - The `1e18 / 2**96` factor for base conversion.
             // We do this all at once, with an intermediate result in `2**213`
             // basis, so the final right shift is always by a positive amount.
-            r = int256(
-                (uint256(r) * 3822833074963236453042738258902158003155416615667) >> uint256(195 - k)
-            );
+            r = int256((uint256(r) * 3822833074963236453042738258902158003155416615667) >> uint256(195 - k));
         }
     }
 
@@ -508,8 +1513,13 @@ library FixedPointMathLib {
                 revert(0x1c, 0x04)
             }
             // forgefmt: disable-next-item
-            r := xor(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff))
+            r := xor(
+                r,
+                byte(
+                    and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
+                    0xf8f9f9faf9fdfafbf9fdfcfdfafbfcfef9fafdfafcfcfbfefafafcfbffffffff
+                )
+            )
 
             // Reduce range of x to (1, 2) * 2**96
             // ln(2^k * x) = k * ln(2) + ln(x)
@@ -518,11 +1528,29 @@ library FixedPointMathLib {
             // Evaluate using a (8, 8)-term rational approximation.
             // `p` is made monic, we will multiply by a scale factor later.
             // forgefmt: disable-next-item
-            let p := sub( // This heavily nested expression is to avoid stack-too-deep for via-ir.
-                sar(96, mul(add(43456485725739037958740375743393,
-                sar(96, mul(add(24828157081833163892658089445524,
-                sar(96, mul(add(3273285459638523848632254066296,
-                    x), x))), x))), x)), 11111509109440967052023855526967)
+            let p := sub(
+                // This heavily nested expression is to avoid stack-too-deep for via-ir.
+                sar(
+                    96,
+                    mul(
+                        add(
+                            43456485725739037958740375743393,
+                            sar(
+                                96,
+                                mul(
+                                    add(
+                                        24828157081833163892658089445524,
+                                        sar(96, mul(add(3273285459638523848632254066296, x), x))
+                                    ),
+                                    x
+                                )
+                            )
+                        ),
+                        x
+                    )
+                ),
+                11111509109440967052023855526967
+            )
             p := sub(sar(96, mul(p, x)), 45023709667254063763336534515857)
             p := sub(sar(96, mul(p, x)), 14706773417378608786704636184526)
             p := sub(mul(p, x), shl(96, 795164235651350426258249787498))
@@ -583,8 +1611,16 @@ library FixedPointMathLib {
                     // Inline log2 for more performance, since the range is small.
                     let v := shr(49, w)
                     let l := shl(3, lt(0xff, v))
-                    l := add(or(l, byte(and(0x1f, shr(shr(l, v), 0x8421084210842108cc6318c6db6d54be)),
-                        0x0706060506020504060203020504030106050205030304010505030400000000)), 49)
+                    l := add(
+                        or(
+                            l,
+                            byte(
+                                and(0x1f, shr(shr(l, v), 0x8421084210842108cc6318c6db6d54be)),
+                                0x0706060506020504060203020504030106050205030304010505030400000000
+                            )
+                        ),
+                        49
+                    )
                     w := sdiv(shl(l, 7), byte(sub(l, 31), 0x0303030303030303040506080c13))
                     c := gt(l, 60)
                     i := add(2, add(gt(l, 53), c))
@@ -599,7 +1635,8 @@ library FixedPointMathLib {
                     c := iszero(shr(143, x))
                 }
                 if (c == uint256(0)) {
-                    do { // If `x` is big, use Newton's so that intermediate values won't overflow.
+                    do {
+                        // If `x` is big, use Newton's so that intermediate values won't overflow.
                         int256 e = expWad(w);
                         /// @solidity memory-safe-assembly
                         assembly {
@@ -616,7 +1653,8 @@ library FixedPointMathLib {
                     return w;
                 }
             }
-            do { // Otherwise, use Halley's for faster convergence.
+            do {
+                // Otherwise, use Halley's for faster convergence.
                 int256 e = expWad(w);
                 /// @solidity memory-safe-assembly
                 assembly {
@@ -652,11 +1690,7 @@ library FixedPointMathLib {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /// @dev Returns `a * b == x * y`, with full precision.
-    function fullMulEq(uint256 a, uint256 b, uint256 x, uint256 y)
-        internal
-        pure
-        returns (bool result)
-    {
+    function fullMulEq(uint256 a, uint256 b, uint256 x, uint256 y) internal pure returns (bool result) {
         /// @solidity memory-safe-assembly
         assembly {
             result := and(eq(mul(a, b), mul(x, y)), eq(mulmod(x, y, not(0)), mulmod(a, b, not(0))))
@@ -677,7 +1711,11 @@ library FixedPointMathLib {
 
             // Temporarily use `z` as `p0` to save gas.
             z := mul(x, y) // Lower 256 bits of `x * y`.
-            for {} 1 {} {
+            for {
+
+            } 1 {
+
+            } {
                 // If overflows.
                 if iszero(mul(or(iszero(x), eq(div(z, x), y)), d)) {
                     let mm := mulmod(x, y, not(0))
@@ -709,14 +1747,13 @@ library FixedPointMathLib {
                     inv := mul(inv, sub(2, mul(d, inv))) // inverse mod 2**32
                     inv := mul(inv, sub(2, mul(d, inv))) // inverse mod 2**64
                     inv := mul(inv, sub(2, mul(d, inv))) // inverse mod 2**128
-                    z :=
-                        mul(
-                            // Divide [p1 p0] by the factors of two.
-                            // Shift in bits from `p1` into `p0`. For this we need
-                            // to flip `t` such that it is `2**256 / t`.
-                            or(mul(sub(p1, gt(r, z)), add(div(sub(0, t), t), 1)), div(sub(z, r), t)),
-                            mul(sub(2, mul(d, inv)), inv) // inverse mod 2**256
-                        )
+                    z := mul(
+                        // Divide [p1 p0] by the factors of two.
+                        // Shift in bits from `p1` into `p0`. For this we need
+                        // to flip `t` such that it is `2**256 / t`.
+                        or(mul(sub(p1, gt(r, z)), add(div(sub(0, t), t), 1)), div(sub(z, r), t)),
+                        mul(sub(2, mul(d, inv)), inv) // inverse mod 2**256
+                    )
                     break
                 }
                 z := div(z, d)
@@ -728,11 +1765,7 @@ library FixedPointMathLib {
     /// @dev Calculates `floor(x * y / d)` with full precision.
     /// Behavior is undefined if `d` is zero or the final result cannot fit in 256 bits.
     /// Performs the full 512 bit calculation regardless.
-    function fullMulDivUnchecked(uint256 x, uint256 y, uint256 d)
-        internal
-        pure
-        returns (uint256 z)
-    {
+    function fullMulDivUnchecked(uint256 x, uint256 y, uint256 d) internal pure returns (uint256 z) {
         /// @solidity memory-safe-assembly
         assembly {
             z := mul(x, y)
@@ -747,11 +1780,10 @@ library FixedPointMathLib {
             inv := mul(inv, sub(2, mul(d, inv)))
             inv := mul(inv, sub(2, mul(d, inv)))
             inv := mul(inv, sub(2, mul(d, inv)))
-            z :=
-                mul(
-                    or(mul(sub(p1, gt(r, z)), add(div(sub(0, t), t), 1)), div(sub(z, r), t)),
-                    mul(sub(2, mul(d, inv)), inv)
-                )
+            z := mul(
+                or(mul(sub(p1, gt(r, z)), add(div(sub(0, t), t), 1)), div(sub(z, r), t)),
+                mul(sub(2, mul(d, inv)), inv)
+            )
         }
     }
 
@@ -782,7 +1814,11 @@ library FixedPointMathLib {
         assembly {
             // Temporarily use `z` as `p0` to save gas.
             z := mul(x, y) // Lower 256 bits of `x * y`. We'll call this `z`.
-            for {} 1 {} {
+            for {
+
+            } 1 {
+
+            } {
                 if iszero(or(iszero(x), eq(div(z, x), y))) {
                     let k := and(n, 0xff) // `n`, cleaned.
                     let mm := mulmod(x, y, not(0))
@@ -840,7 +1876,11 @@ library FixedPointMathLib {
         assembly {
             let g := n
             let r := mod(a, n)
-            for { let y := 1 } 1 {} {
+            for {
+                let y := 1
+            } 1 {
+
+            } {
                 let q := div(g, r)
                 let t := g
                 g := r
@@ -848,7 +1888,9 @@ library FixedPointMathLib {
                 let u := x
                 x := y
                 y := sub(u, mul(y, q))
-                if iszero(r) { break }
+                if iszero(r) {
+                    break
+                }
             }
             x := mul(eq(g, 1), add(x, mul(slt(x, 0), n)))
         }
@@ -957,7 +1999,11 @@ library FixedPointMathLib {
                 z := xor(b, mul(xor(b, x), and(y, 1))) // `z = isEven(y) ? scale : x`
                 let half := shr(1, b) // Divide `b` by 2.
                 // Divide `y` by 2 every iteration.
-                for { y := shr(1, y) } y { y := shr(1, y) } {
+                for {
+                    y := shr(1, y)
+                } y {
+                    y := shr(1, y)
+                } {
                     let xx := mul(x, x) // Store x squared.
                     let xxRound := add(xx, half) // Round to the nearest number.
                     // Revert if `xx + half` overflowed, or if `x ** 2` overflows.
@@ -1092,7 +2138,11 @@ library FixedPointMathLib {
         /// @solidity memory-safe-assembly
         assembly {
             let p := x
-            for {} 1 {} {
+            for {
+
+            } 1 {
+
+            } {
                 if iszero(shr(229, p)) {
                     if iszero(shr(199, p)) {
                         p := mul(p, 100000000000000000) // 10 ** 17.
@@ -1101,7 +2151,9 @@ library FixedPointMathLib {
                     p := mul(p, 100000000) // 10 ** 8.
                     break
                 }
-                if iszero(shr(249, p)) { p := mul(p, 100) }
+                if iszero(shr(249, p)) {
+                    p := mul(p, 100)
+                }
                 break
             }
             let t := mulmod(mul(z, z), z, p)
@@ -1118,7 +2170,13 @@ library FixedPointMathLib {
                 mstore(0x00, 0xaba0f2a2) // `FactorialOverflow()`.
                 revert(0x1c, 0x04)
             }
-            for {} x { x := sub(x, 1) } { z := mul(z, x) }
+            for {
+
+            } x {
+                x := sub(x, 1)
+            } {
+                z := mul(z, x)
+            }
         }
     }
 
@@ -1134,8 +2192,13 @@ library FixedPointMathLib {
             r := or(r, shl(4, lt(0xffff, shr(r, x))))
             r := or(r, shl(3, lt(0xff, shr(r, x))))
             // forgefmt: disable-next-item
-            r := or(r, byte(and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                0x0706060506020504060203020504030106050205030304010505030400000000))
+            r := or(
+                r,
+                byte(
+                    and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
+                    0x0706060506020504060203020504030106050205030304010505030400000000
+                )
+            )
         }
     }
 
@@ -1343,11 +2406,7 @@ library FixedPointMathLib {
     }
 
     /// @dev Returns `x`, bounded to `minValue` and `maxValue`.
-    function clamp(uint256 x, uint256 minValue, uint256 maxValue)
-        internal
-        pure
-        returns (uint256 z)
-    {
+    function clamp(uint256 x, uint256 minValue, uint256 maxValue) internal pure returns (uint256 z) {
         /// @solidity memory-safe-assembly
         assembly {
             z := xor(x, mul(xor(x, minValue), gt(minValue, x)))
@@ -1368,7 +2427,11 @@ library FixedPointMathLib {
     function gcd(uint256 x, uint256 y) internal pure returns (uint256 z) {
         /// @solidity memory-safe-assembly
         assembly {
-            for { z := x } y {} {
+            for {
+                z := x
+            } y {
+
+            } {
                 let t := y
                 y := mod(z, y)
                 z := t
@@ -1380,11 +2443,7 @@ library FixedPointMathLib {
     /// with `t` clamped between `begin` and `end` (inclusive).
     /// Agnostic to the order of (`a`, `b`) and (`end`, `begin`).
     /// If `begins == end`, returns `t <= begin ? a : b`.
-    function lerp(uint256 a, uint256 b, uint256 t, uint256 begin, uint256 end)
-        internal
-        pure
-        returns (uint256)
-    {
+    function lerp(uint256 a, uint256 b, uint256 t, uint256 begin, uint256 end) internal pure returns (uint256) {
         if (begin > end) (t, begin, end) = (~t, ~begin, ~end);
         if (t <= begin) return a;
         if (t >= end) return b;
@@ -1398,20 +2457,15 @@ library FixedPointMathLib {
     /// with `t` clamped between `begin` and `end` (inclusive).
     /// Agnostic to the order of (`a`, `b`) and (`end`, `begin`).
     /// If `begins == end`, returns `t <= begin ? a : b`.
-    function lerp(int256 a, int256 b, int256 t, int256 begin, int256 end)
-        internal
-        pure
-        returns (int256)
-    {
+    function lerp(int256 a, int256 b, int256 t, int256 begin, int256 end) internal pure returns (int256) {
         if (begin > end) (t, begin, end) = (~t, ~begin, ~end);
         if (t <= begin) return a;
         if (t >= end) return b;
         // forgefmt: disable-next-item
         unchecked {
-            if (b >= a) return int256(uint256(a) + fullMulDiv(uint256(b - a),
-                uint256(t - begin), uint256(end - begin)));
-            return int256(uint256(a) - fullMulDiv(uint256(a - b),
-                uint256(t - begin), uint256(end - begin)));
+            if (b >= a)
+                return int256(uint256(a) + fullMulDiv(uint256(b - a), uint256(t - begin), uint256(end - begin)));
+            return int256(uint256(a) - fullMulDiv(uint256(a - b), uint256(t - begin), uint256(end - begin)));
         }
     }
 
@@ -1514,7 +2568,6 @@ library FixedPointMathLib {
         }
     }
 }
-
 
 // File solady/src/utils/SafeCastLib.sol
 
@@ -2192,12 +3245,10 @@ library SafeCastLib {
     }
 }
 
-
 // File price/src/Price.sol
 
 // Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
-
 
 /**
  * @title Price Library
@@ -2346,12 +3397,13 @@ library Price {
         // Perform binary search
         while (iterations < maxIteration) {
             uint256 mid = (lowerBound + upperBound) / 2;
+            uint256 supplyDelta = mid - supply;
 
             // Calculate average price for mid amount of tokens
-            uint256 price = getExecutionPrice(supply, supplyOther, mid.toInt256());
+            uint256 price = getExecutionPrice(supply, supplyOther, supplyDelta.toInt256());
 
             // Calculate total value (USDT, 6 decimals)
-            uint256 totalValue = price.mulWad(mid - supply);
+            uint256 totalValue = price.mulWad(supplyDelta);
             int256 usdtDiff = usdtAmount.toInt256() - totalValue.toInt256();
 
             if (totalValue < usdtAmount) {
@@ -2360,10 +3412,10 @@ library Price {
                 upperBound = mid;
             } else {
                 // Found exact match
-                return (mid - supply, price);
+                return (supplyDelta, price);
             }
 
-            if (usdtDiff > 0 && usdtDiff <= precision) return (mid - supply, price);
+            if (usdtDiff > 0 && usdtDiff <= precision) return (supplyDelta, price);
 
             // Increment iteration count
             iterations++;
@@ -2396,397 +3448,2872 @@ library Price {
     }
 }
 
-
-// File solady/src/utils/legacy/CWIA.sol
+// File solady/src/utils/LibClone.sol
 
 // Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.4;
 
-/// @notice Class with helper read functions for clone with immutable args.
-/// @author Solady (https://github.com/vectorized/solady/blob/main/src/utils/legacy/CWIA.sol)
-/// @author Adapted from clones with immutable args by zefram.eth, Saw-mon & Natalie
+/// @notice Minimal proxy library.
+/// @author Solady (https://github.com/vectorized/solady/blob/main/src/utils/LibClone.sol)
+/// @author Minimal proxy by 0age (https://github.com/0age)
+/// @author Clones with immutable args by wighawag, zefram.eth, Saw-mon & Natalie
 /// (https://github.com/Saw-mon-and-Natalie/clones-with-immutable-args)
-abstract contract CWIA {
-    /// @dev Reads all of the immutable args.
-    function _getArgBytes() internal pure returns (bytes memory arg) {
-        uint256 offset = _getImmutableArgsOffset();
+/// @author Minimal ERC1967 proxy by jtriley-eth (https://github.com/jtriley-eth/minimum-viable-proxy)
+///
+/// @dev Minimal proxy:
+/// Although the sw0nt pattern saves 5 gas over the ERC1167 pattern during runtime,
+/// it is not supported out-of-the-box on Etherscan. Hence, we choose to use the 0age pattern,
+/// which saves 4 gas over the ERC1167 pattern during runtime, and has the smallest bytecode.
+/// - Automatically verified on Etherscan.
+///
+/// @dev Minimal proxy (PUSH0 variant):
+/// This is a new minimal proxy that uses the PUSH0 opcode introduced during Shanghai.
+/// It is optimized first for minimal runtime gas, then for minimal bytecode.
+/// The PUSH0 clone functions are intentionally postfixed with a jarring "_PUSH0" as
+/// many EVM chains may not support the PUSH0 opcode in the early months after Shanghai.
+/// Please use with caution.
+/// - Automatically verified on Etherscan.
+///
+/// @dev Clones with immutable args (CWIA):
+/// The implementation of CWIA here does NOT append the immutable args into the calldata
+/// passed into delegatecall. It is simply an ERC1167 minimal proxy with the immutable arguments
+/// appended to the back of the runtime bytecode.
+/// - Uses the identity precompile (0x4) to copy args during deployment.
+///
+/// @dev Minimal ERC1967 proxy:
+/// A minimal ERC1967 proxy, intended to be upgraded with UUPS.
+/// This is NOT the same as ERC1967Factory's transparent proxy, which includes admin logic.
+/// - Automatically verified on Etherscan.
+///
+/// @dev Minimal ERC1967 proxy with immutable args:
+/// - Uses the identity precompile (0x4) to copy args during deployment.
+/// - Automatically verified on Etherscan.
+///
+/// @dev ERC1967I proxy:
+/// A variant of the minimal ERC1967 proxy, with a special code path that activates
+/// if `calldatasize() == 1`. This code path skips the delegatecall and directly returns the
+/// `implementation` address. The returned implementation is guaranteed to be valid if the
+/// keccak256 of the proxy's code is equal to `ERC1967I_CODE_HASH`.
+///
+/// @dev ERC1967I proxy with immutable args:
+/// A variant of the minimal ERC1967 proxy, with a special code path that activates
+/// if `calldatasize() == 1`. This code path skips the delegatecall and directly returns the
+/// - Uses the identity precompile (0x4) to copy args during deployment.
+///
+/// @dev Minimal ERC1967 beacon proxy:
+/// A minimal beacon proxy, intended to be upgraded with an upgradable beacon.
+/// - Automatically verified on Etherscan.
+///
+/// @dev Minimal ERC1967 beacon proxy with immutable args:
+/// - Uses the identity precompile (0x4) to copy args during deployment.
+/// - Automatically verified on Etherscan.
+///
+/// @dev ERC1967I beacon proxy:
+/// A variant of the minimal ERC1967 beacon proxy, with a special code path that activates
+/// if `calldatasize() == 1`. This code path skips the delegatecall and directly returns the
+/// `implementation` address. The returned implementation is guaranteed to be valid if the
+/// keccak256 of the proxy's code is equal to `ERC1967I_CODE_HASH`.
+///
+/// @dev ERC1967I proxy with immutable args:
+/// A variant of the minimal ERC1967 beacon proxy, with a special code path that activates
+/// if `calldatasize() == 1`. This code path skips the delegatecall and directly returns the
+/// - Uses the identity precompile (0x4) to copy args during deployment.
+library LibClone {
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                         CONSTANTS                          */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev The keccak256 of deployed code for the clone proxy,
+    /// with the implementation set to `address(0)`.
+    bytes32 internal constant CLONE_CODE_HASH = 0x48db2cfdb2853fce0b464f1f93a1996469459df3ab6c812106074c4106a1eb1f;
+
+    /// @dev The keccak256 of deployed code for the PUSH0 proxy,
+    /// with the implementation set to `address(0)`.
+    bytes32 internal constant PUSH0_CLONE_CODE_HASH =
+        0x67bc6bde1b84d66e267c718ba44cf3928a615d29885537955cb43d44b3e789dc;
+
+    /// @dev The keccak256 of deployed code for the ERC-1167 CWIA proxy,
+    /// with the implementation set to `address(0)`.
+    bytes32 internal constant CWIA_CODE_HASH = 0x3cf92464268225a4513da40a34d967354684c32cd0edd67b5f668dfe3550e940;
+
+    /// @dev The keccak256 of the deployed code for the ERC1967 proxy.
+    bytes32 internal constant ERC1967_CODE_HASH = 0xaaa52c8cc8a0e3fd27ce756cc6b4e70c51423e9b597b11f32d3e49f8b1fc890d;
+
+    /// @dev The keccak256 of the deployed code for the ERC1967I proxy.
+    bytes32 internal constant ERC1967I_CODE_HASH = 0xce700223c0d4cea4583409accfc45adac4a093b3519998a9cbbe1504dadba6f7;
+
+    /// @dev The keccak256 of the deployed code for the ERC1967 beacon proxy.
+    bytes32 internal constant ERC1967_BEACON_PROXY_CODE_HASH =
+        0x14044459af17bc4f0f5aa2f658cb692add77d1302c29fe2aebab005eea9d1162;
+
+    /// @dev The keccak256 of the deployed code for the ERC1967 beacon proxy.
+    bytes32 internal constant ERC1967I_BEACON_PROXY_CODE_HASH =
+        0xf8c46d2793d5aa984eb827aeaba4b63aedcab80119212fce827309788735519a;
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       CUSTOM ERRORS                        */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Unable to deploy the clone.
+    error DeploymentFailed();
+
+    /// @dev The salt must start with either the zero address or `by`.
+    error SaltDoesNotStartWith();
+
+    /// @dev The ETH transfer has failed.
+    error ETHTransferFailed();
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                  MINIMAL PROXY OPERATIONS                  */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Deploys a clone of `implementation`.
+    function clone(address implementation) internal returns (address instance) {
+        instance = clone(0, implementation);
+    }
+
+    /// @dev Deploys a clone of `implementation`.
+    /// Deposits `value` ETH during deployment.
+    function clone(uint256 value, address implementation) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := mload(0x40)
-            let length := sub(calldatasize(), add(2, offset)) // 2 bytes are used for the length.
-            mstore(arg, length) // Store the length.
-            calldatacopy(add(arg, 0x20), offset, length)
-            let o := add(add(arg, 0x20), length)
-            mstore(o, 0) // Zeroize the slot after the bytes.
-            mstore(0x40, add(o, 0x20)) // Allocate the memory.
+            /**
+             * --------------------------------------------------------------------------+
+             * CREATION (9 bytes)                                                        |
+             * --------------------------------------------------------------------------|
+             * Opcode     | Mnemonic          | Stack     | Memory                       |
+             * --------------------------------------------------------------------------|
+             * 60 runSize | PUSH1 runSize     | r         |                              |
+             * 3d         | RETURNDATASIZE    | 0 r       |                              |
+             * 81         | DUP2              | r 0 r     |                              |
+             * 60 offset  | PUSH1 offset      | o r 0 r   |                              |
+             * 3d         | RETURNDATASIZE    | 0 o r 0 r |                              |
+             * 39         | CODECOPY          | 0 r       | [0..runSize): runtime code   |
+             * f3         | RETURN            |           | [0..runSize): runtime code   |
+             * --------------------------------------------------------------------------|
+             * RUNTIME (44 bytes)                                                        |
+             * --------------------------------------------------------------------------|
+             * Opcode  | Mnemonic       | Stack                  | Memory                |
+             * --------------------------------------------------------------------------|
+             *                                                                           |
+             * ::: keep some values in stack ::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d      | RETURNDATASIZE | 0                      |                       |
+             * 3d      | RETURNDATASIZE | 0 0                    |                       |
+             * 3d      | RETURNDATASIZE | 0 0 0                  |                       |
+             * 3d      | RETURNDATASIZE | 0 0 0 0                |                       |
+             *                                                                           |
+             * ::: copy calldata to memory ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 36      | CALLDATASIZE   | cds 0 0 0 0            |                       |
+             * 3d      | RETURNDATASIZE | 0 cds 0 0 0 0          |                       |
+             * 3d      | RETURNDATASIZE | 0 0 cds 0 0 0 0        |                       |
+             * 37      | CALLDATACOPY   | 0 0 0 0                | [0..cds): calldata    |
+             *                                                                           |
+             * ::: delegate call to the implementation contract :::::::::::::::::::::::: |
+             * 36      | CALLDATASIZE   | cds 0 0 0 0            | [0..cds): calldata    |
+             * 3d      | RETURNDATASIZE | 0 cds 0 0 0 0          | [0..cds): calldata    |
+             * 73 addr | PUSH20 addr    | addr 0 cds 0 0 0 0     | [0..cds): calldata    |
+             * 5a      | GAS            | gas addr 0 cds 0 0 0 0 | [0..cds): calldata    |
+             * f4      | DELEGATECALL   | success 0 0            | [0..cds): calldata    |
+             *                                                                           |
+             * ::: copy return data to memory :::::::::::::::::::::::::::::::::::::::::: |
+             * 3d      | RETURNDATASIZE | rds success 0 0        | [0..cds): calldata    |
+             * 3d      | RETURNDATASIZE | rds rds success 0 0    | [0..cds): calldata    |
+             * 93      | SWAP4          | 0 rds success 0 rds    | [0..cds): calldata    |
+             * 80      | DUP1           | 0 0 rds success 0 rds  | [0..cds): calldata    |
+             * 3e      | RETURNDATACOPY | success 0 rds          | [0..rds): returndata  |
+             *                                                                           |
+             * 60 0x2a | PUSH1 0x2a     | 0x2a success 0 rds     | [0..rds): returndata  |
+             * 57      | JUMPI          | 0 rds                  | [0..rds): returndata  |
+             *                                                                           |
+             * ::: revert :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * fd      | REVERT         |                        | [0..rds): returndata  |
+             *                                                                           |
+             * ::: return :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 5b      | JUMPDEST       | 0 rds                  | [0..rds): returndata  |
+             * f3      | RETURN         |                        | [0..rds): returndata  |
+             * --------------------------------------------------------------------------+
+             */
+            mstore(0x21, 0x5af43d3d93803e602a57fd5bf3)
+            mstore(0x14, implementation)
+            mstore(0x00, 0x602c3d8160093d39f33d3d3d3d363d3d37363d73)
+            instance := create(value, 0x0c, 0x35)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x21, 0) // Restore the overwritten part of the free memory pointer.
         }
     }
 
-    /// @dev Reads an immutable arg with type bytes.
-    function _getArgBytes(uint256 argOffset, uint256 length)
-        internal
-        pure
-        returns (bytes memory arg)
-    {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Deploys a deterministic clone of `implementation` with `salt`.
+    function cloneDeterministic(address implementation, bytes32 salt) internal returns (address instance) {
+        instance = cloneDeterministic(0, implementation, salt);
+    }
+
+    /// @dev Deploys a deterministic clone of `implementation` with `salt`.
+    /// Deposits `value` ETH during deployment.
+    function cloneDeterministic(
+        uint256 value,
+        address implementation,
+        bytes32 salt
+    ) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := mload(0x40)
-            mstore(arg, length) // Store the length.
-            calldatacopy(add(arg, 0x20), add(offset, argOffset), length)
-            let o := add(add(arg, 0x20), length)
-            mstore(o, 0) // Zeroize the slot after the bytes.
-            mstore(0x40, add(o, 0x20)) // Allocate the memory.
+            mstore(0x21, 0x5af43d3d93803e602a57fd5bf3)
+            mstore(0x14, implementation)
+            mstore(0x00, 0x602c3d8160093d39f33d3d3d3d363d3d37363d73)
+            instance := create2(value, 0x0c, 0x35, salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x21, 0) // Restore the overwritten part of the free memory pointer.
         }
     }
 
-    /// @dev Reads an immutable arg with type address.
-    function _getArgAddress(uint256 argOffset) internal pure returns (address arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code of the clone of `implementation`.
+    function initCode(address implementation) internal pure returns (bytes memory c) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(96, calldataload(add(offset, argOffset)))
+            c := mload(0x40)
+            mstore(add(c, 0x40), 0x5af43d3d93803e602a57fd5bf30000000000000000000000)
+            mstore(add(c, 0x28), implementation)
+            mstore(add(c, 0x14), 0x602c3d8160093d39f33d3d3d3d363d3d37363d73)
+            mstore(c, 0x35) // Store the length.
+            mstore(0x40, add(c, 0x60)) // Allocate memory.
         }
     }
 
-    /// @dev Reads a uint256 array stored in the immutable args.
-    function _getArgUint256Array(uint256 argOffset, uint256 length)
-        internal
-        pure
-        returns (uint256[] memory arg)
-    {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code hash of the clone of `implementation`.
+    function initCodeHash(address implementation) internal pure returns (bytes32 hash) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := mload(0x40)
-            mstore(arg, length) // Store the length.
-            calldatacopy(add(arg, 0x20), add(offset, argOffset), shl(5, length))
-            mstore(0x40, add(add(arg, 0x20), shl(5, length))) // Allocate the memory.
+            mstore(0x21, 0x5af43d3d93803e602a57fd5bf3)
+            mstore(0x14, implementation)
+            mstore(0x00, 0x602c3d8160093d39f33d3d3d3d363d3d37363d73)
+            hash := keccak256(0x0c, 0x35)
+            mstore(0x21, 0) // Restore the overwritten part of the free memory pointer.
         }
     }
 
-    /// @dev Reads a bytes32 array stored in the immutable args.
-    function _getArgBytes32Array(uint256 argOffset, uint256 length)
-        internal
-        pure
-        returns (bytes32[] memory arg)
-    {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the address of the clone of `implementation`, with `salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddress(
+        address implementation,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHash(implementation);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*          MINIMAL PROXY OPERATIONS (PUSH0 VARIANT)          */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Deploys a PUSH0 clone of `implementation`.
+    function clone_PUSH0(address implementation) internal returns (address instance) {
+        instance = clone_PUSH0(0, implementation);
+    }
+
+    /// @dev Deploys a PUSH0 clone of `implementation`.
+    /// Deposits `value` ETH during deployment.
+    function clone_PUSH0(uint256 value, address implementation) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := mload(0x40)
-            mstore(arg, length) // Store the length.
-            calldatacopy(add(arg, 0x20), add(offset, argOffset), shl(5, length))
-            mstore(0x40, add(add(arg, 0x20), shl(5, length))) // Allocate the memory.
+            /**
+             * --------------------------------------------------------------------------+
+             * CREATION (9 bytes)                                                        |
+             * --------------------------------------------------------------------------|
+             * Opcode     | Mnemonic          | Stack     | Memory                       |
+             * --------------------------------------------------------------------------|
+             * 60 runSize | PUSH1 runSize     | r         |                              |
+             * 5f         | PUSH0             | 0 r       |                              |
+             * 81         | DUP2              | r 0 r     |                              |
+             * 60 offset  | PUSH1 offset      | o r 0 r   |                              |
+             * 5f         | PUSH0             | 0 o r 0 r |                              |
+             * 39         | CODECOPY          | 0 r       | [0..runSize): runtime code   |
+             * f3         | RETURN            |           | [0..runSize): runtime code   |
+             * --------------------------------------------------------------------------|
+             * RUNTIME (45 bytes)                                                        |
+             * --------------------------------------------------------------------------|
+             * Opcode  | Mnemonic       | Stack                  | Memory                |
+             * --------------------------------------------------------------------------|
+             *                                                                           |
+             * ::: keep some values in stack ::::::::::::::::::::::::::::::::::::::::::: |
+             * 5f      | PUSH0          | 0                      |                       |
+             * 5f      | PUSH0          | 0 0                    |                       |
+             *                                                                           |
+             * ::: copy calldata to memory ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 36      | CALLDATASIZE   | cds 0 0                |                       |
+             * 5f      | PUSH0          | 0 cds 0 0              |                       |
+             * 5f      | PUSH0          | 0 0 cds 0 0            |                       |
+             * 37      | CALLDATACOPY   | 0 0                    | [0..cds): calldata    |
+             *                                                                           |
+             * ::: delegate call to the implementation contract :::::::::::::::::::::::: |
+             * 36      | CALLDATASIZE   | cds 0 0                | [0..cds): calldata    |
+             * 5f      | PUSH0          | 0 cds 0 0              | [0..cds): calldata    |
+             * 73 addr | PUSH20 addr    | addr 0 cds 0 0         | [0..cds): calldata    |
+             * 5a      | GAS            | gas addr 0 cds 0 0     | [0..cds): calldata    |
+             * f4      | DELEGATECALL   | success                | [0..cds): calldata    |
+             *                                                                           |
+             * ::: copy return data to memory :::::::::::::::::::::::::::::::::::::::::: |
+             * 3d      | RETURNDATASIZE | rds success            | [0..cds): calldata    |
+             * 5f      | PUSH0          | 0 rds success          | [0..cds): calldata    |
+             * 5f      | PUSH0          | 0 0 rds success        | [0..cds): calldata    |
+             * 3e      | RETURNDATACOPY | success                | [0..rds): returndata  |
+             *                                                                           |
+             * 60 0x29 | PUSH1 0x29     | 0x29 success           | [0..rds): returndata  |
+             * 57      | JUMPI          |                        | [0..rds): returndata  |
+             *                                                                           |
+             * ::: revert :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d      | RETURNDATASIZE | rds                    | [0..rds): returndata  |
+             * 5f      | PUSH0          | 0 rds                  | [0..rds): returndata  |
+             * fd      | REVERT         |                        | [0..rds): returndata  |
+             *                                                                           |
+             * ::: return :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 5b      | JUMPDEST       |                        | [0..rds): returndata  |
+             * 3d      | RETURNDATASIZE | rds                    | [0..rds): returndata  |
+             * 5f      | PUSH0          | 0 rds                  | [0..rds): returndata  |
+             * f3      | RETURN         |                        | [0..rds): returndata  |
+             * --------------------------------------------------------------------------+
+             */
+            mstore(0x24, 0x5af43d5f5f3e6029573d5ffd5b3d5ff3) // 16
+            mstore(0x14, implementation) // 20
+            mstore(0x00, 0x602d5f8160095f39f35f5f365f5f37365f73) // 9 + 9
+            instance := create(value, 0x0e, 0x36)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x24, 0) // Restore the overwritten part of the free memory pointer.
         }
     }
 
-    /// @dev Reads an immutable arg with type bytes32.
-    function _getArgBytes32(uint256 argOffset) internal pure returns (bytes32 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Deploys a deterministic PUSH0 clone of `implementation` with `salt`.
+    function cloneDeterministic_PUSH0(address implementation, bytes32 salt) internal returns (address instance) {
+        instance = cloneDeterministic_PUSH0(0, implementation, salt);
+    }
+
+    /// @dev Deploys a deterministic PUSH0 clone of `implementation` with `salt`.
+    /// Deposits `value` ETH during deployment.
+    function cloneDeterministic_PUSH0(
+        uint256 value,
+        address implementation,
+        bytes32 salt
+    ) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := calldataload(add(offset, argOffset))
+            mstore(0x24, 0x5af43d5f5f3e6029573d5ffd5b3d5ff3) // 16
+            mstore(0x14, implementation) // 20
+            mstore(0x00, 0x602d5f8160095f39f35f5f365f5f37365f73) // 9 + 9
+            instance := create2(value, 0x0e, 0x36, salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x24, 0) // Restore the overwritten part of the free memory pointer.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint256.
-    function _getArgUint256(uint256 argOffset) internal pure returns (uint256 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code of the PUSH0 clone of `implementation`.
+    function initCode_PUSH0(address implementation) internal pure returns (bytes memory c) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := calldataload(add(offset, argOffset))
+            c := mload(0x40)
+            mstore(add(c, 0x40), 0x5af43d5f5f3e6029573d5ffd5b3d5ff300000000000000000000) // 16
+            mstore(add(c, 0x26), implementation) // 20
+            mstore(add(c, 0x12), 0x602d5f8160095f39f35f5f365f5f37365f73) // 9 + 9
+            mstore(c, 0x36) // Store the length.
+            mstore(0x40, add(c, 0x60)) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint248.
-    function _getArgUint248(uint256 argOffset) internal pure returns (uint248 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code hash of the PUSH0 clone of `implementation`.
+    function initCodeHash_PUSH0(address implementation) internal pure returns (bytes32 hash) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(8, calldataload(add(offset, argOffset)))
+            mstore(0x24, 0x5af43d5f5f3e6029573d5ffd5b3d5ff3) // 16
+            mstore(0x14, implementation) // 20
+            mstore(0x00, 0x602d5f8160095f39f35f5f365f5f37365f73) // 9 + 9
+            hash := keccak256(0x0e, 0x36)
+            mstore(0x24, 0) // Restore the overwritten part of the free memory pointer.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint240.
-    function _getArgUint240(uint256 argOffset) internal pure returns (uint240 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the address of the PUSH0 clone of `implementation`, with `salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddress_PUSH0(
+        address implementation,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHash_PUSH0(implementation);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*           CLONES WITH IMMUTABLE ARGS OPERATIONS            */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Deploys a clone of `implementation` with immutable arguments encoded in `args`.
+    function clone(address implementation, bytes memory args) internal returns (address instance) {
+        instance = clone(0, implementation, args);
+    }
+
+    /// @dev Deploys a clone of `implementation` with immutable arguments encoded in `args`.
+    /// Deposits `value` ETH during deployment.
+    function clone(uint256 value, address implementation, bytes memory args) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(16, calldataload(add(offset, argOffset)))
+            /**
+             * ---------------------------------------------------------------------------+
+             * CREATION (10 bytes)                                                        |
+             * ---------------------------------------------------------------------------|
+             * Opcode     | Mnemonic          | Stack     | Memory                        |
+             * ---------------------------------------------------------------------------|
+             * 61 runSize | PUSH2 runSize     | r         |                               |
+             * 3d         | RETURNDATASIZE    | 0 r       |                               |
+             * 81         | DUP2              | r 0 r     |                               |
+             * 60 offset  | PUSH1 offset      | o r 0 r   |                               |
+             * 3d         | RETURNDATASIZE    | 0 o r 0 r |                               |
+             * 39         | CODECOPY          | 0 r       | [0..runSize): runtime code    |
+             * f3         | RETURN            |           | [0..runSize): runtime code    |
+             * ---------------------------------------------------------------------------|
+             * RUNTIME (45 bytes + extraLength)                                           |
+             * ---------------------------------------------------------------------------|
+             * Opcode   | Mnemonic       | Stack                  | Memory                |
+             * ---------------------------------------------------------------------------|
+             *                                                                            |
+             * ::: copy calldata to memory :::::::::::::::::::::::::::::::::::::::::::::: |
+             * 36       | CALLDATASIZE   | cds                    |                       |
+             * 3d       | RETURNDATASIZE | 0 cds                  |                       |
+             * 3d       | RETURNDATASIZE | 0 0 cds                |                       |
+             * 37       | CALLDATACOPY   |                        | [0..cds): calldata    |
+             *                                                                            |
+             * ::: delegate call to the implementation contract ::::::::::::::::::::::::: |
+             * 3d       | RETURNDATASIZE | 0                      | [0..cds): calldata    |
+             * 3d       | RETURNDATASIZE | 0 0                    | [0..cds): calldata    |
+             * 3d       | RETURNDATASIZE | 0 0 0                  | [0..cds): calldata    |
+             * 36       | CALLDATASIZE   | cds 0 0 0              | [0..cds): calldata    |
+             * 3d       | RETURNDATASIZE | 0 cds 0 0 0 0          | [0..cds): calldata    |
+             * 73 addr  | PUSH20 addr    | addr 0 cds 0 0 0 0     | [0..cds): calldata    |
+             * 5a       | GAS            | gas addr 0 cds 0 0 0 0 | [0..cds): calldata    |
+             * f4       | DELEGATECALL   | success 0 0            | [0..cds): calldata    |
+             *                                                                            |
+             * ::: copy return data to memory ::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d       | RETURNDATASIZE | rds success 0          | [0..cds): calldata    |
+             * 82       | DUP3           | 0 rds success 0         | [0..cds): calldata   |
+             * 80       | DUP1           | 0 0 rds success 0      | [0..cds): calldata    |
+             * 3e       | RETURNDATACOPY | success 0              | [0..rds): returndata  |
+             * 90       | SWAP1          | 0 success              | [0..rds): returndata  |
+             * 3d       | RETURNDATASIZE | rds 0 success          | [0..rds): returndata  |
+             * 91       | SWAP2          | success 0 rds          | [0..rds): returndata  |
+             *                                                                            |
+             * 60 0x2b  | PUSH1 0x2b     | 0x2b success 0 rds     | [0..rds): returndata  |
+             * 57       | JUMPI          | 0 rds                  | [0..rds): returndata  |
+             *                                                                            |
+             * ::: revert ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * fd       | REVERT         |                        | [0..rds): returndata  |
+             *                                                                            |
+             * ::: return ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 5b       | JUMPDEST       | 0 rds                  | [0..rds): returndata  |
+             * f3       | RETURN         |                        | [0..rds): returndata  |
+             * ---------------------------------------------------------------------------+
+             */
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x43), n))
+            mstore(add(m, 0x23), 0x5af43d82803e903d91602b57fd5bf3)
+            mstore(add(m, 0x14), implementation)
+            mstore(m, add(0xfe61002d3d81600a3d39f3363d3d373d3d3d363d73, shl(136, n)))
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x2d = 0xffd2`.
+            instance := create(value, add(m, add(0x0b, lt(n, 0xffd3))), add(n, 0x37))
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
         }
     }
 
-    /// @dev Reads an immutable arg with type uint232.
-    function _getArgUint232(uint256 argOffset) internal pure returns (uint232 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Deploys a deterministic clone of `implementation`
+    /// with immutable arguments encoded in `args` and `salt`.
+    function cloneDeterministic(
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
+        instance = cloneDeterministic(0, implementation, args, salt);
+    }
+
+    /// @dev Deploys a deterministic clone of `implementation`
+    /// with immutable arguments encoded in `args` and `salt`.
+    function cloneDeterministic(
+        uint256 value,
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(24, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x43), n))
+            mstore(add(m, 0x23), 0x5af43d82803e903d91602b57fd5bf3)
+            mstore(add(m, 0x14), implementation)
+            mstore(m, add(0xfe61002d3d81600a3d39f3363d3d373d3d3d363d73, shl(136, n)))
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x2d = 0xffd2`.
+            instance := create2(value, add(m, add(0x0b, lt(n, 0xffd3))), add(n, 0x37), salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
         }
     }
 
-    /// @dev Reads an immutable arg with type uint224.
-    function _getArgUint224(uint256 argOffset) internal pure returns (uint224 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Deploys a deterministic clone of `implementation`
+    /// with immutable arguments encoded in `args` and `salt`.
+    /// This method does not revert if the clone has already been deployed.
+    function createDeterministicClone(
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        return createDeterministicClone(0, implementation, args, salt);
+    }
+
+    /// @dev Deploys a deterministic clone of `implementation`
+    /// with immutable arguments encoded in `args` and `salt`.
+    /// This method does not revert if the clone has already been deployed.
+    function createDeterministicClone(
+        uint256 value,
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(0x20, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x43), n))
+            mstore(add(m, 0x23), 0x5af43d82803e903d91602b57fd5bf3)
+            mstore(add(m, 0x14), implementation)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x2d = 0xffd2`.
+            // forgefmt: disable-next-item
+            mstore(add(m, gt(n, 0xffd2)), add(0xfe61002d3d81600a3d39f3363d3d373d3d3d363d73, shl(136, n)))
+            // Compute and store the bytecode hash.
+            mstore8(0x00, 0xff) // Write the prefix.
+            mstore(0x35, keccak256(add(m, 0x0c), add(n, 0x37)))
+            mstore(0x01, shl(96, address()))
+            mstore(0x15, salt)
+            instance := keccak256(0x00, 0x55)
+            for {
+
+            } 1 {
+
+            } {
+                if iszero(extcodesize(instance)) {
+                    instance := create2(value, add(m, 0x0c), add(n, 0x37), salt)
+                    if iszero(instance) {
+                        mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                        revert(0x1c, 0x04)
+                    }
+                    break
+                }
+                alreadyDeployed := 1
+                if iszero(value) {
+                    break
+                }
+                if iszero(call(gas(), instance, value, codesize(), 0x00, codesize(), 0x00)) {
+                    mstore(0x00, 0xb12d13eb) // `ETHTransferFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                break
+            }
+            mstore(0x35, 0) // Restore the overwritten part of the free memory pointer.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint216.
-    function _getArgUint216(uint256 argOffset) internal pure returns (uint216 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code of the clone of `implementation`
+    /// using immutable arguments encoded in `args`.
+    function initCode(address implementation, bytes memory args) internal pure returns (bytes memory c) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(40, calldataload(add(offset, argOffset)))
+            c := mload(0x40)
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x2d = 0xffd2`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffd2))
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(c, 0x57), i), mload(add(add(args, 0x20), i)))
+            }
+            mstore(add(c, 0x37), 0x5af43d82803e903d91602b57fd5bf3)
+            mstore(add(c, 0x28), implementation)
+            mstore(add(c, 0x14), add(0x61002d3d81600a3d39f3363d3d373d3d3d363d73, shl(136, n)))
+            mstore(c, add(0x37, n)) // Store the length.
+            mstore(add(c, add(n, 0x57)), 0) // Zeroize the slot after the bytes.
+            mstore(0x40, add(c, add(n, 0x77))) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint208.
-    function _getArgUint208(uint256 argOffset) internal pure returns (uint208 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code hash of the clone of `implementation`
+    /// using immutable arguments encoded in `args`.
+    function initCodeHash(address implementation, bytes memory args) internal pure returns (bytes32 hash) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(48, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x2d = 0xffd2`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffd2))
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(m, 0x43), i), mload(add(add(args, 0x20), i)))
+            }
+            mstore(add(m, 0x23), 0x5af43d82803e903d91602b57fd5bf3)
+            mstore(add(m, 0x14), implementation)
+            mstore(m, add(0x61002d3d81600a3d39f3363d3d373d3d3d363d73, shl(136, n)))
+            hash := keccak256(add(m, 0x0c), add(n, 0x37))
         }
     }
 
-    /// @dev Reads an immutable arg with type uint200.
-    function _getArgUint200(uint256 argOffset) internal pure returns (uint200 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the address of the clone of
+    /// `implementation` using immutable arguments encoded in `args`, with `salt`, by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddress(
+        address implementation,
+        bytes memory data,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHash(implementation, data);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /// @dev Equivalent to `argsOnClone(instance, 0, 2 ** 256 - 1)`.
+    function argsOnClone(address instance) internal view returns (bytes memory args) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(56, calldataload(add(offset, argOffset)))
+            args := mload(0x40)
+            mstore(args, and(0xffffffffff, sub(extcodesize(instance), 0x2d))) // Store the length.
+            extcodecopy(instance, add(args, 0x20), 0x2d, add(mload(args), 0x20))
+            mstore(0x40, add(mload(args), add(args, 0x40))) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint192.
-    function _getArgUint192(uint256 argOffset) internal pure returns (uint192 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Equivalent to `argsOnClone(instance, start, 2 ** 256 - 1)`.
+    function argsOnClone(address instance, uint256 start) internal view returns (bytes memory args) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(64, calldataload(add(offset, argOffset)))
+            args := mload(0x40)
+            let n := and(0xffffffffff, sub(extcodesize(instance), 0x2d))
+            let l := sub(n, and(0xffffff, mul(lt(start, n), start)))
+            extcodecopy(instance, args, add(start, 0x0d), add(l, 0x40))
+            mstore(args, mul(sub(n, start), lt(start, n))) // Store the length.
+            mstore(0x40, add(args, add(0x40, mload(args)))) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint184.
-    function _getArgUint184(uint256 argOffset) internal pure returns (uint184 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns a slice of the immutable arguments on `instance` from `start` to `end`.
+    /// `start` and `end` will be clamped to the range `[0, args.length]`.
+    /// The `instance` MUST be deployed via the clone with immutable args functions.
+    /// Otherwise, the behavior is undefined.
+    /// Out-of-gas reverts if `instance` does not have any code.
+    function argsOnClone(address instance, uint256 start, uint256 end) internal view returns (bytes memory args) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(72, calldataload(add(offset, argOffset)))
+            args := mload(0x40)
+            if iszero(lt(end, 0xffff)) {
+                end := 0xffff
+            }
+            let d := mul(sub(end, start), lt(start, end))
+            extcodecopy(instance, args, add(start, 0x0d), add(d, 0x20))
+            if iszero(and(0xff, mload(add(args, d)))) {
+                let n := sub(extcodesize(instance), 0x2d)
+                returndatacopy(returndatasize(), returndatasize(), shr(40, n))
+                d := mul(gt(n, start), sub(d, mul(gt(end, n), sub(end, n))))
+            }
+            mstore(args, d) // Store the length.
+            mstore(add(add(args, 0x20), d), 0) // Zeroize the slot after the bytes.
+            mstore(0x40, add(add(args, 0x40), d)) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint176.
-    function _getArgUint176(uint256 argOffset) internal pure returns (uint176 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*              MINIMAL ERC1967 PROXY OPERATIONS              */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    // Note: The ERC1967 proxy here is intended to be upgraded with UUPS.
+    // This is NOT the same as ERC1967Factory's transparent proxy, which includes admin logic.
+
+    /// @dev Deploys a minimal ERC1967 proxy with `implementation`.
+    function deployERC1967(address implementation) internal returns (address instance) {
+        instance = deployERC1967(0, implementation);
+    }
+
+    /// @dev Deploys a minimal ERC1967 proxy with `implementation`.
+    /// Deposits `value` ETH during deployment.
+    function deployERC1967(uint256 value, address implementation) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(80, calldataload(add(offset, argOffset)))
+            /**
+             * ---------------------------------------------------------------------------------+
+             * CREATION (34 bytes)                                                              |
+             * ---------------------------------------------------------------------------------|
+             * Opcode     | Mnemonic       | Stack            | Memory                          |
+             * ---------------------------------------------------------------------------------|
+             * 60 runSize | PUSH1 runSize  | r                |                                 |
+             * 3d         | RETURNDATASIZE | 0 r              |                                 |
+             * 81         | DUP2           | r 0 r            |                                 |
+             * 60 offset  | PUSH1 offset   | o r 0 r          |                                 |
+             * 3d         | RETURNDATASIZE | 0 o r 0 r        |                                 |
+             * 39         | CODECOPY       | 0 r              | [0..runSize): runtime code      |
+             * 73 impl    | PUSH20 impl    | impl 0 r         | [0..runSize): runtime code      |
+             * 60 slotPos | PUSH1 slotPos  | slotPos impl 0 r | [0..runSize): runtime code      |
+             * 51         | MLOAD          | slot impl 0 r    | [0..runSize): runtime code      |
+             * 55         | SSTORE         | 0 r              | [0..runSize): runtime code      |
+             * f3         | RETURN         |                  | [0..runSize): runtime code      |
+             * ---------------------------------------------------------------------------------|
+             * RUNTIME (61 bytes)                                                               |
+             * ---------------------------------------------------------------------------------|
+             * Opcode     | Mnemonic       | Stack            | Memory                          |
+             * ---------------------------------------------------------------------------------|
+             *                                                                                  |
+             * ::: copy calldata to memory :::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 36         | CALLDATASIZE   | cds              |                                 |
+             * 3d         | RETURNDATASIZE | 0 cds            |                                 |
+             * 3d         | RETURNDATASIZE | 0 0 cds          |                                 |
+             * 37         | CALLDATACOPY   |                  | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ::: delegatecall to implementation ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | 0                |                                 |
+             * 3d         | RETURNDATASIZE | 0 0              |                                 |
+             * 36         | CALLDATASIZE   | cds 0 0          | [0..calldatasize): calldata     |
+             * 3d         | RETURNDATASIZE | 0 cds 0 0        | [0..calldatasize): calldata     |
+             * 7f slot    | PUSH32 slot    | s 0 cds 0 0      | [0..calldatasize): calldata     |
+             * 54         | SLOAD          | i 0 cds 0 0      | [0..calldatasize): calldata     |
+             * 5a         | GAS            | g i 0 cds 0 0    | [0..calldatasize): calldata     |
+             * f4         | DELEGATECALL   | succ             | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ::: copy returndata to memory :::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | rds succ         | [0..calldatasize): calldata     |
+             * 60 0x00    | PUSH1 0x00     | 0 rds succ       | [0..calldatasize): calldata     |
+             * 80         | DUP1           | 0 0 rds succ     | [0..calldatasize): calldata     |
+             * 3e         | RETURNDATACOPY | succ             | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: branch on delegatecall status :::::::::::::::::::::::::::::::::::::::::::::: |
+             * 60 0x38    | PUSH1 0x38     | dest succ        | [0..returndatasize): returndata |
+             * 57         | JUMPI          |                  | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: delegatecall failed, revert :::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | rds              | [0..returndatasize): returndata |
+             * 60 0x00    | PUSH1 0x00     | 0 rds            | [0..returndatasize): returndata |
+             * fd         | REVERT         |                  | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: delegatecall succeeded, return ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 5b         | JUMPDEST       |                  | [0..returndatasize): returndata |
+             * 3d         | RETURNDATASIZE | rds              | [0..returndatasize): returndata |
+             * 60 0x00    | PUSH1 0x00     | 0 rds            | [0..returndatasize): returndata |
+             * f3         | RETURN         |                  | [0..returndatasize): returndata |
+             * ---------------------------------------------------------------------------------+
+             */
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0xcc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3)
+            mstore(0x40, 0x5155f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076)
+            mstore(0x20, 0x6009)
+            mstore(0x1e, implementation)
+            mstore(0x0a, 0x603d3d8160223d3973)
+            instance := create(value, 0x21, 0x5f)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint168.
-    function _getArgUint168(uint256 argOffset) internal pure returns (uint168 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Deploys a deterministic minimal ERC1967 proxy with `implementation` and `salt`.
+    function deployDeterministicERC1967(address implementation, bytes32 salt) internal returns (address instance) {
+        instance = deployDeterministicERC1967(0, implementation, salt);
+    }
+
+    /// @dev Deploys a deterministic minimal ERC1967 proxy with `implementation` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    function deployDeterministicERC1967(
+        uint256 value,
+        address implementation,
+        bytes32 salt
+    ) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(88, calldataload(add(offset, argOffset)))
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0xcc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3)
+            mstore(0x40, 0x5155f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076)
+            mstore(0x20, 0x6009)
+            mstore(0x1e, implementation)
+            mstore(0x0a, 0x603d3d8160223d3973)
+            instance := create2(value, 0x21, 0x5f, salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint160.
-    function _getArgUint160(uint256 argOffset) internal pure returns (uint160 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Creates a deterministic minimal ERC1967 proxy with `implementation` and `salt`.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967(
+        address implementation,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        return createDeterministicERC1967(0, implementation, salt);
+    }
+
+    /// @dev Creates a deterministic minimal ERC1967 proxy with `implementation` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967(
+        uint256 value,
+        address implementation,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(96, calldataload(add(offset, argOffset)))
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0xcc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3)
+            mstore(0x40, 0x5155f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076)
+            mstore(0x20, 0x6009)
+            mstore(0x1e, implementation)
+            mstore(0x0a, 0x603d3d8160223d3973)
+            // Compute and store the bytecode hash.
+            mstore(add(m, 0x35), keccak256(0x21, 0x5f))
+            mstore(m, shl(88, address()))
+            mstore8(m, 0xff) // Write the prefix.
+            mstore(add(m, 0x15), salt)
+            instance := keccak256(m, 0x55)
+            for {
+
+            } 1 {
+
+            } {
+                if iszero(extcodesize(instance)) {
+                    instance := create2(value, 0x21, 0x5f, salt)
+                    if iszero(instance) {
+                        mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                        revert(0x1c, 0x04)
+                    }
+                    break
+                }
+                alreadyDeployed := 1
+                if iszero(value) {
+                    break
+                }
+                if iszero(call(gas(), instance, value, codesize(), 0x00, codesize(), 0x00)) {
+                    mstore(0x00, 0xb12d13eb) // `ETHTransferFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                break
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint152.
-    function _getArgUint152(uint256 argOffset) internal pure returns (uint152 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code of the minimal ERC1967 proxy of `implementation`.
+    function initCodeERC1967(address implementation) internal pure returns (bytes memory c) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(104, calldataload(add(offset, argOffset)))
+            c := mload(0x40)
+            mstore(add(c, 0x60), 0x3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f300)
+            mstore(add(c, 0x40), 0x55f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076cc)
+            mstore(add(c, 0x20), or(shl(24, implementation), 0x600951))
+            mstore(add(c, 0x09), 0x603d3d8160223d3973)
+            mstore(c, 0x5f) // Store the length.
+            mstore(0x40, add(c, 0x80)) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint144.
-    function _getArgUint144(uint256 argOffset) internal pure returns (uint144 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code hash of the minimal ERC1967 proxy of `implementation`.
+    function initCodeHashERC1967(address implementation) internal pure returns (bytes32 hash) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(112, calldataload(add(offset, argOffset)))
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0xcc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3)
+            mstore(0x40, 0x5155f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076)
+            mstore(0x20, 0x6009)
+            mstore(0x1e, implementation)
+            mstore(0x0a, 0x603d3d8160223d3973)
+            hash := keccak256(0x21, 0x5f)
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint136.
-    function _getArgUint136(uint256 argOffset) internal pure returns (uint136 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the address of the ERC1967 proxy of `implementation`, with `salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddressERC1967(
+        address implementation,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHashERC1967(implementation);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*    MINIMAL ERC1967 PROXY WITH IMMUTABLE ARGS OPERATIONS    */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Deploys a minimal ERC1967 proxy with `implementation` and `args`.
+    function deployERC1967(address implementation, bytes memory args) internal returns (address instance) {
+        instance = deployERC1967(0, implementation, args);
+    }
+
+    /// @dev Deploys a minimal ERC1967 proxy with `implementation` and `args`.
+    /// Deposits `value` ETH during deployment.
+    function deployERC1967(
+        uint256 value,
+        address implementation,
+        bytes memory args
+    ) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(120, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x60), n))
+            mstore(add(m, 0x40), 0xcc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3)
+            mstore(add(m, 0x20), 0x5155f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076)
+            mstore(0x16, 0x6009)
+            mstore(0x14, implementation)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x3d = 0xffc2`.
+            mstore(gt(n, 0xffc2), add(0xfe61003d3d8160233d3973, shl(56, n)))
+            mstore(m, mload(0x16))
+            instance := create(value, m, add(n, 0x60))
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
         }
     }
 
-    /// @dev Reads an immutable arg with type uint128.
-    function _getArgUint128(uint256 argOffset) internal pure returns (uint128 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Deploys a deterministic minimal ERC1967 proxy with `implementation`, `args` and `salt`.
+    function deployDeterministicERC1967(
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
+        instance = deployDeterministicERC1967(0, implementation, args, salt);
+    }
+
+    /// @dev Deploys a deterministic minimal ERC1967 proxy with `implementation`, `args` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    function deployDeterministicERC1967(
+        uint256 value,
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(128, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x60), n))
+            mstore(add(m, 0x40), 0xcc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3)
+            mstore(add(m, 0x20), 0x5155f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076)
+            mstore(0x16, 0x6009)
+            mstore(0x14, implementation)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x3d = 0xffc2`.
+            mstore(gt(n, 0xffc2), add(0xfe61003d3d8160233d3973, shl(56, n)))
+            mstore(m, mload(0x16))
+            instance := create2(value, m, add(n, 0x60), salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
         }
     }
 
-    /// @dev Reads an immutable arg with type uint120.
-    function _getArgUint120(uint256 argOffset) internal pure returns (uint120 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Creates a deterministic minimal ERC1967 proxy with `implementation`, `args` and `salt`.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967(
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        return createDeterministicERC1967(0, implementation, args, salt);
+    }
+
+    /// @dev Creates a deterministic minimal ERC1967 proxy with `implementation`, `args` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967(
+        uint256 value,
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(136, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x60), n))
+            mstore(add(m, 0x40), 0xcc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3)
+            mstore(add(m, 0x20), 0x5155f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076)
+            mstore(0x16, 0x6009)
+            mstore(0x14, implementation)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x3d = 0xffc2`.
+            mstore(gt(n, 0xffc2), add(0xfe61003d3d8160233d3973, shl(56, n)))
+            mstore(m, mload(0x16))
+            // Compute and store the bytecode hash.
+            mstore8(0x00, 0xff) // Write the prefix.
+            mstore(0x35, keccak256(m, add(n, 0x60)))
+            mstore(0x01, shl(96, address()))
+            mstore(0x15, salt)
+            instance := keccak256(0x00, 0x55)
+            for {
+
+            } 1 {
+
+            } {
+                if iszero(extcodesize(instance)) {
+                    instance := create2(value, m, add(n, 0x60), salt)
+                    if iszero(instance) {
+                        mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                        revert(0x1c, 0x04)
+                    }
+                    break
+                }
+                alreadyDeployed := 1
+                if iszero(value) {
+                    break
+                }
+                if iszero(call(gas(), instance, value, codesize(), 0x00, codesize(), 0x00)) {
+                    mstore(0x00, 0xb12d13eb) // `ETHTransferFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                break
+            }
+            mstore(0x35, 0) // Restore the overwritten part of the free memory pointer.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint112.
-    function _getArgUint112(uint256 argOffset) internal pure returns (uint112 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code of the minimal ERC1967 proxy of `implementation` and `args`.
+    function initCodeERC1967(address implementation, bytes memory args) internal pure returns (bytes memory c) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(144, calldataload(add(offset, argOffset)))
+            c := mload(0x40)
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x3d = 0xffc2`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffc2))
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(c, 0x80), i), mload(add(add(args, 0x20), i)))
+            }
+            mstore(add(c, 0x60), 0xcc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3)
+            mstore(add(c, 0x40), 0x5155f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076)
+            mstore(add(c, 0x20), 0x6009)
+            mstore(add(c, 0x1e), implementation)
+            mstore(add(c, 0x0a), add(0x61003d3d8160233d3973, shl(56, n)))
+            mstore(c, add(n, 0x60)) // Store the length.
+            mstore(add(c, add(n, 0x80)), 0) // Zeroize the slot after the bytes.
+            mstore(0x40, add(c, add(n, 0xa0))) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint104.
-    function _getArgUint104(uint256 argOffset) internal pure returns (uint104 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code hash of the minimal ERC1967 proxy of `implementation` and `args`.
+    function initCodeHashERC1967(address implementation, bytes memory args) internal pure returns (bytes32 hash) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(152, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x3d = 0xffc2`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffc2))
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(m, 0x60), i), mload(add(add(args, 0x20), i)))
+            }
+            mstore(add(m, 0x40), 0xcc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3)
+            mstore(add(m, 0x20), 0x5155f3363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076)
+            mstore(0x16, 0x6009)
+            mstore(0x14, implementation)
+            mstore(0x00, add(0x61003d3d8160233d3973, shl(56, n)))
+            mstore(m, mload(0x16))
+            hash := keccak256(m, add(n, 0x60))
         }
     }
 
-    /// @dev Reads an immutable arg with type uint96.
-    function _getArgUint96(uint256 argOffset) internal pure returns (uint96 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the address of the ERC1967 proxy of `implementation`, `args`, with `salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddressERC1967(
+        address implementation,
+        bytes memory args,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHashERC1967(implementation, args);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /// @dev Equivalent to `argsOnERC1967(instance, start, 2 ** 256 - 1)`.
+    function argsOnERC1967(address instance) internal view returns (bytes memory args) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(160, calldataload(add(offset, argOffset)))
+            args := mload(0x40)
+            mstore(args, and(0xffffffffff, sub(extcodesize(instance), 0x3d))) // Store the length.
+            extcodecopy(instance, add(args, 0x20), 0x3d, add(mload(args), 0x20))
+            mstore(0x40, add(mload(args), add(args, 0x40))) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint88.
-    function _getArgUint88(uint256 argOffset) internal pure returns (uint88 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Equivalent to `argsOnERC1967(instance, start, 2 ** 256 - 1)`.
+    function argsOnERC1967(address instance, uint256 start) internal view returns (bytes memory args) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(168, calldataload(add(offset, argOffset)))
+            args := mload(0x40)
+            let n := and(0xffffffffff, sub(extcodesize(instance), 0x3d))
+            let l := sub(n, and(0xffffff, mul(lt(start, n), start)))
+            extcodecopy(instance, args, add(start, 0x1d), add(l, 0x40))
+            mstore(args, mul(sub(n, start), lt(start, n))) // Store the length.
+            mstore(0x40, add(args, add(0x40, mload(args)))) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint80.
-    function _getArgUint80(uint256 argOffset) internal pure returns (uint80 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns a slice of the immutable arguments on `instance` from `start` to `end`.
+    /// `start` and `end` will be clamped to the range `[0, args.length]`.
+    /// The `instance` MUST be deployed via the ERC1967 with immutable args functions.
+    /// Otherwise, the behavior is undefined.
+    /// Out-of-gas reverts if `instance` does not have any code.
+    function argsOnERC1967(address instance, uint256 start, uint256 end) internal view returns (bytes memory args) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(176, calldataload(add(offset, argOffset)))
+            args := mload(0x40)
+            if iszero(lt(end, 0xffff)) {
+                end := 0xffff
+            }
+            let d := mul(sub(end, start), lt(start, end))
+            extcodecopy(instance, args, add(start, 0x1d), add(d, 0x20))
+            if iszero(and(0xff, mload(add(args, d)))) {
+                let n := sub(extcodesize(instance), 0x3d)
+                returndatacopy(returndatasize(), returndatasize(), shr(40, n))
+                d := mul(gt(n, start), sub(d, mul(gt(end, n), sub(end, n))))
+            }
+            mstore(args, d) // Store the length.
+            mstore(add(add(args, 0x20), d), 0) // Zeroize the slot after the bytes.
+            mstore(0x40, add(add(args, 0x40), d)) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint72.
-    function _getArgUint72(uint256 argOffset) internal pure returns (uint72 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                 ERC1967I PROXY OPERATIONS                  */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    // Note: This proxy has a special code path that activates if `calldatasize() == 1`.
+    // This code path skips the delegatecall and directly returns the `implementation` address.
+    // The returned implementation is guaranteed to be valid if the keccak256 of the
+    // proxy's code is equal to `ERC1967I_CODE_HASH`.
+
+    /// @dev Deploys a ERC1967I proxy with `implementation`.
+    function deployERC1967I(address implementation) internal returns (address instance) {
+        instance = deployERC1967I(0, implementation);
+    }
+
+    /// @dev Deploys a ERC1967I proxy with `implementation`.
+    /// Deposits `value` ETH during deployment.
+    function deployERC1967I(uint256 value, address implementation) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(184, calldataload(add(offset, argOffset)))
+            /**
+             * ---------------------------------------------------------------------------------+
+             * CREATION (34 bytes)                                                              |
+             * ---------------------------------------------------------------------------------|
+             * Opcode     | Mnemonic       | Stack            | Memory                          |
+             * ---------------------------------------------------------------------------------|
+             * 60 runSize | PUSH1 runSize  | r                |                                 |
+             * 3d         | RETURNDATASIZE | 0 r              |                                 |
+             * 81         | DUP2           | r 0 r            |                                 |
+             * 60 offset  | PUSH1 offset   | o r 0 r          |                                 |
+             * 3d         | RETURNDATASIZE | 0 o r 0 r        |                                 |
+             * 39         | CODECOPY       | 0 r              | [0..runSize): runtime code      |
+             * 73 impl    | PUSH20 impl    | impl 0 r         | [0..runSize): runtime code      |
+             * 60 slotPos | PUSH1 slotPos  | slotPos impl 0 r | [0..runSize): runtime code      |
+             * 51         | MLOAD          | slot impl 0 r    | [0..runSize): runtime code      |
+             * 55         | SSTORE         | 0 r              | [0..runSize): runtime code      |
+             * f3         | RETURN         |                  | [0..runSize): runtime code      |
+             * ---------------------------------------------------------------------------------|
+             * RUNTIME (82 bytes)                                                               |
+             * ---------------------------------------------------------------------------------|
+             * Opcode     | Mnemonic       | Stack            | Memory                          |
+             * ---------------------------------------------------------------------------------|
+             *                                                                                  |
+             * ::: check calldatasize ::::::::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 36         | CALLDATASIZE   | cds              |                                 |
+             * 58         | PC             | 1 cds            |                                 |
+             * 14         | EQ             | eqs              |                                 |
+             * 60 0x43    | PUSH1 0x43     | dest eqs         |                                 |
+             * 57         | JUMPI          |                  |                                 |
+             *                                                                                  |
+             * ::: copy calldata to memory :::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 36         | CALLDATASIZE   | cds              |                                 |
+             * 3d         | RETURNDATASIZE | 0 cds            |                                 |
+             * 3d         | RETURNDATASIZE | 0 0 cds          |                                 |
+             * 37         | CALLDATACOPY   |                  | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ::: delegatecall to implementation ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | 0                |                                 |
+             * 3d         | RETURNDATASIZE | 0 0              |                                 |
+             * 36         | CALLDATASIZE   | cds 0 0          | [0..calldatasize): calldata     |
+             * 3d         | RETURNDATASIZE | 0 cds 0 0        | [0..calldatasize): calldata     |
+             * 7f slot    | PUSH32 slot    | s 0 cds 0 0      | [0..calldatasize): calldata     |
+             * 54         | SLOAD          | i 0 cds 0 0      | [0..calldatasize): calldata     |
+             * 5a         | GAS            | g i 0 cds 0 0    | [0..calldatasize): calldata     |
+             * f4         | DELEGATECALL   | succ             | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ::: copy returndata to memory :::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | rds succ         | [0..calldatasize): calldata     |
+             * 60 0x00    | PUSH1 0x00     | 0 rds succ       | [0..calldatasize): calldata     |
+             * 80         | DUP1           | 0 0 rds succ     | [0..calldatasize): calldata     |
+             * 3e         | RETURNDATACOPY | succ             | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: branch on delegatecall status :::::::::::::::::::::::::::::::::::::::::::::: |
+             * 60 0x3E    | PUSH1 0x3E     | dest succ        | [0..returndatasize): returndata |
+             * 57         | JUMPI          |                  | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: delegatecall failed, revert :::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | rds              | [0..returndatasize): returndata |
+             * 60 0x00    | PUSH1 0x00     | 0 rds            | [0..returndatasize): returndata |
+             * fd         | REVERT         |                  | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: delegatecall succeeded, return ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 5b         | JUMPDEST       |                  | [0..returndatasize): returndata |
+             * 3d         | RETURNDATASIZE | rds              | [0..returndatasize): returndata |
+             * 60 0x00    | PUSH1 0x00     | 0 rds            | [0..returndatasize): returndata |
+             * f3         | RETURN         |                  | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: implementation , return :::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 5b         | JUMPDEST       |                  |                                 |
+             * 60 0x20    | PUSH1 0x20     | 32               |                                 |
+             * 60 0x0F    | PUSH1 0x0F     | o 32             |                                 |
+             * 3d         | RETURNDATASIZE | 0 o 32           |                                 |
+             * 39         | CODECOPY       |                  | [0..32): implementation slot    |
+             * 3d         | RETURNDATASIZE | 0                | [0..32): implementation slot    |
+             * 51         | MLOAD          | slot             | [0..32): implementation slot    |
+             * 54         | SLOAD          | impl             | [0..32): implementation slot    |
+             * 3d         | RETURNDATASIZE | 0 impl           | [0..32): implementation slot    |
+             * 52         | MSTORE         |                  | [0..32): implementation address |
+             * 59         | MSIZE          | 32               | [0..32): implementation address |
+             * 3d         | RETURNDATASIZE | 0 32             | [0..32): implementation address |
+             * f3         | RETURN         |                  | [0..32): implementation address |
+             * ---------------------------------------------------------------------------------+
+             */
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(0x40, 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(0x20, 0x600f5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(0x09, or(shl(160, 0x60523d8160223d3973), shr(96, shl(96, implementation))))
+            instance := create(value, 0x0c, 0x74)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint64.
-    function _getArgUint64(uint256 argOffset) internal pure returns (uint64 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Deploys a deterministic ERC1967I proxy with `implementation` and `salt`.
+    function deployDeterministicERC1967I(address implementation, bytes32 salt) internal returns (address instance) {
+        instance = deployDeterministicERC1967I(0, implementation, salt);
+    }
+
+    /// @dev Deploys a deterministic ERC1967I proxy with `implementation` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    function deployDeterministicERC1967I(
+        uint256 value,
+        address implementation,
+        bytes32 salt
+    ) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(192, calldataload(add(offset, argOffset)))
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(0x40, 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(0x20, 0x600f5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(0x09, or(shl(160, 0x60523d8160223d3973), shr(96, shl(96, implementation))))
+            instance := create2(value, 0x0c, 0x74, salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint56.
-    function _getArgUint56(uint256 argOffset) internal pure returns (uint56 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Creates a deterministic ERC1967I proxy with `implementation` and `salt`.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967I(
+        address implementation,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        return createDeterministicERC1967I(0, implementation, salt);
+    }
+
+    /// @dev Creates a deterministic ERC1967I proxy with `implementation` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967I(
+        uint256 value,
+        address implementation,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(200, calldataload(add(offset, argOffset)))
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(0x40, 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(0x20, 0x600f5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(0x09, or(shl(160, 0x60523d8160223d3973), shr(96, shl(96, implementation))))
+            // Compute and store the bytecode hash.
+            mstore(add(m, 0x35), keccak256(0x0c, 0x74))
+            mstore(m, shl(88, address()))
+            mstore8(m, 0xff) // Write the prefix.
+            mstore(add(m, 0x15), salt)
+            instance := keccak256(m, 0x55)
+            for {
+
+            } 1 {
+
+            } {
+                if iszero(extcodesize(instance)) {
+                    instance := create2(value, 0x0c, 0x74, salt)
+                    if iszero(instance) {
+                        mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                        revert(0x1c, 0x04)
+                    }
+                    break
+                }
+                alreadyDeployed := 1
+                if iszero(value) {
+                    break
+                }
+                if iszero(call(gas(), instance, value, codesize(), 0x00, codesize(), 0x00)) {
+                    mstore(0x00, 0xb12d13eb) // `ETHTransferFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                break
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint48.
-    function _getArgUint48(uint256 argOffset) internal pure returns (uint48 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code of the ERC1967I proxy of `implementation`.
+    function initCodeERC1967I(address implementation) internal pure returns (bytes memory c) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(208, calldataload(add(offset, argOffset)))
+            c := mload(0x40)
+            mstore(add(c, 0x74), 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(add(c, 0x54), 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(add(c, 0x34), 0x600f5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(add(c, 0x1d), implementation)
+            mstore(add(c, 0x09), 0x60523d8160223d3973)
+            mstore(add(c, 0x94), 0)
+            mstore(c, 0x74) // Store the length.
+            mstore(0x40, add(c, 0xa0)) // Allocate memory.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint40.
-    function _getArgUint40(uint256 argOffset) internal pure returns (uint40 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code hash of the ERC1967I proxy of `implementation`.
+    function initCodeHashERC1967I(address implementation) internal pure returns (bytes32 hash) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(216, calldataload(add(offset, argOffset)))
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(0x40, 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(0x20, 0x600f5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(0x09, or(shl(160, 0x60523d8160223d3973), shr(96, shl(96, implementation))))
+            hash := keccak256(0x0c, 0x74)
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint32.
-    function _getArgUint32(uint256 argOffset) internal pure returns (uint32 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the address of the ERC1967I proxy of `implementation`, with `salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddressERC1967I(
+        address implementation,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHashERC1967I(implementation);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*       ERC1967I PROXY WITH IMMUTABLE ARGS OPERATIONS        */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Deploys a minimal ERC1967I proxy with `implementation` and `args`.
+    function deployERC1967I(address implementation, bytes memory args) internal returns (address) {
+        return deployERC1967I(0, implementation, args);
+    }
+
+    /// @dev Deploys a minimal ERC1967I proxy with `implementation` and `args`.
+    /// Deposits `value` ETH during deployment.
+    function deployERC1967I(
+        uint256 value,
+        address implementation,
+        bytes memory args
+    ) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(224, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x8b), n))
+
+            mstore(add(m, 0x6b), 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(add(m, 0x4b), 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(add(m, 0x2b), 0x600f5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(add(m, 0x14), implementation)
+            mstore(m, add(0xfe6100523d8160233d3973, shl(56, n)))
+
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            instance := create(value, add(m, add(0x15, lt(n, 0xffae))), add(0x75, n))
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
         }
     }
 
-    /// @dev Reads an immutable arg with type uint24.
-    function _getArgUint24(uint256 argOffset) internal pure returns (uint24 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Deploys a deterministic ERC1967I proxy with `implementation`, `args`, and `salt`.
+    function deployDeterministicERC1967I(
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
+        instance = deployDeterministicERC1967I(0, implementation, args, salt);
+    }
+
+    /// @dev Deploys a deterministic ERC1967I proxy with `implementation`, `args`, and `salt`.
+    /// Deposits `value` ETH during deployment.
+    function deployDeterministicERC1967I(
+        uint256 value,
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(232, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x8b), n))
+
+            mstore(add(m, 0x6b), 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(add(m, 0x4b), 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(add(m, 0x2b), 0x600f5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(add(m, 0x14), implementation)
+            mstore(m, add(0xfe6100523d8160233d3973, shl(56, n)))
+
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            instance := create2(value, add(m, add(0x15, lt(n, 0xffae))), add(0x75, n), salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
         }
     }
 
-    /// @dev Reads an immutable arg with type uint16.
-    function _getArgUint16(uint256 argOffset) internal pure returns (uint16 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Creates a deterministic ERC1967I proxy with `implementation`, `args` and `salt`.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967I(
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        return createDeterministicERC1967I(0, implementation, args, salt);
+    }
+
+    /// @dev Creates a deterministic ERC1967I proxy with `implementation`, `args` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967I(
+        uint256 value,
+        address implementation,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(240, calldataload(add(offset, argOffset)))
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x75), n))
+            mstore(add(m, 0x55), 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(add(m, 0x35), 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(add(m, 0x15), 0x5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(0x16, 0x600f)
+            mstore(0x14, implementation)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            mstore(gt(n, 0xffad), add(0xfe6100523d8160233d3973, shl(56, n)))
+            mstore(m, mload(0x16))
+            // Compute and store the bytecode hash.
+            mstore8(0x00, 0xff) // Write the prefix.
+            mstore(0x35, keccak256(m, add(n, 0x75)))
+            mstore(0x01, shl(96, address()))
+            mstore(0x15, salt)
+            instance := keccak256(0x00, 0x55)
+            for {
+
+            } 1 {
+
+            } {
+                if iszero(extcodesize(instance)) {
+                    instance := create2(value, m, add(0x75, n), salt)
+                    if iszero(instance) {
+                        mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                        revert(0x1c, 0x04)
+                    }
+                    break
+                }
+                alreadyDeployed := 1
+                if iszero(value) {
+                    break
+                }
+                if iszero(call(gas(), instance, value, codesize(), 0x00, codesize(), 0x00)) {
+                    mstore(0x00, 0xb12d13eb) // `ETHTransferFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                break
+            }
+            mstore(0x35, 0) // Restore the overwritten part of the free memory pointer.
         }
     }
 
-    /// @dev Reads an immutable arg with type uint8.
-    function _getArgUint8(uint256 argOffset) internal pure returns (uint8 arg) {
-        uint256 offset = _getImmutableArgsOffset();
+    /// @dev Returns the initialization code of the ERC1967I proxy of `implementation` and `args`.
+    function initCodeERC1967I(address implementation, bytes memory args) internal pure returns (bytes memory c) {
         /// @solidity memory-safe-assembly
         assembly {
-            arg := shr(248, calldataload(add(offset, argOffset)))
+            c := mload(0x40)
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffad))
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(c, 0x95), i), mload(add(add(args, 0x20), i)))
+            }
+
+            mstore(add(c, 0x75), 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(add(c, 0x55), 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(add(c, 0x35), 0x600f5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(add(c, 0x1e), implementation)
+            mstore(add(c, 0x0a), add(0x6100523d8160233d3973, shl(56, n)))
+            mstore(add(c, add(n, 0x95)), 0)
+            mstore(c, add(0x75, n)) // Store the length.
+            mstore(0x40, add(c, add(n, 0xb5))) // Allocate memory.
         }
     }
 
-    /// @return offset The offset of the packed immutable args in calldata.
-    function _getImmutableArgsOffset() internal pure returns (uint256 offset) {
+    /// @dev Returns the initialization code hash of the ERC1967I proxy of `implementation` and `args.
+    function initCodeHashERC1967I(address implementation, bytes memory args) internal pure returns (bytes32 hash) {
         /// @solidity memory-safe-assembly
         assembly {
-            offset := sub(calldatasize(), shr(240, calldataload(sub(calldatasize(), 2))))
+            let m := mload(0x40) // Cache the free memory pointer.
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffad))
+
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(m, 0x75), i), mload(add(add(args, 0x20), i)))
+            }
+
+            mstore(add(m, 0x55), 0x3d6000803e603e573d6000fd5b3d6000f35b6020600f3d393d51543d52593df3)
+            mstore(add(m, 0x35), 0xa13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af4)
+            mstore(add(m, 0x15), 0x5155f3365814604357363d3d373d3d363d7f360894)
+            mstore(0x16, 0x600f)
+            mstore(0x14, implementation)
+            mstore(0x00, add(0x6100523d8160233d3973, shl(56, n)))
+            mstore(m, mload(0x16))
+            hash := keccak256(m, add(0x75, n))
+        }
+    }
+
+    /// @dev Returns the address of the ERC1967I proxy of `implementation`, `args` with `salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddressERC1967I(
+        address implementation,
+        bytes memory args,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHashERC1967I(implementation, args);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /// @dev Equivalent to `argsOnERC1967I(instance, start, 2 ** 256 - 1)`.
+    function argsOnERC1967I(address instance) internal view returns (bytes memory args) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            args := mload(0x40)
+            mstore(args, and(0xffffffffff, sub(extcodesize(instance), 0x52))) // Store the length.
+            extcodecopy(instance, add(args, 0x20), 0x52, add(mload(args), 0x20))
+            mstore(0x40, add(mload(args), add(args, 0x40))) // Allocate memory.
+        }
+    }
+
+    /// @dev Equivalent to `argsOnERC1967I(instance, start, 2 ** 256 - 1)`.
+    function argsOnERC1967I(address instance, uint256 start) internal view returns (bytes memory args) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            args := mload(0x40)
+            let n := and(0xffffffffff, sub(extcodesize(instance), 0x52))
+            let l := sub(n, and(0xffffff, mul(lt(start, n), start)))
+            extcodecopy(instance, args, add(start, 0x32), add(l, 0x40))
+            mstore(args, mul(sub(n, start), lt(start, n))) // Store the length.
+            mstore(0x40, add(mload(args), add(args, 0x40))) // Allocate memory.
+        }
+    }
+
+    /// @dev Returns a slice of the immutable arguments on `instance` from `start` to `end`.
+    /// `start` and `end` will be clamped to the range `[0, args.length]`.
+    /// The `instance` MUST be deployed via the ERC1967 with immutable args functions.
+    /// Otherwise, the behavior is undefined.
+    /// Out-of-gas reverts if `instance` does not have any code.
+    function argsOnERC1967I(address instance, uint256 start, uint256 end) internal view returns (bytes memory args) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            args := mload(0x40)
+            if iszero(lt(end, 0xffff)) {
+                end := 0xffff
+            }
+            let d := mul(sub(end, start), lt(start, end))
+            extcodecopy(instance, args, add(start, 0x32), add(d, 0x20))
+            if iszero(and(0xff, mload(add(args, d)))) {
+                let n := sub(extcodesize(instance), 0x52)
+                returndatacopy(returndatasize(), returndatasize(), shr(40, n))
+                d := mul(gt(n, start), sub(d, mul(gt(end, n), sub(end, n))))
+            }
+            mstore(args, d) // Store the length.
+            mstore(add(add(args, 0x20), d), 0) // Zeroize the slot after the bytes.
+            mstore(0x40, add(add(args, 0x40), d)) // Allocate memory.
+        }
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                ERC1967 BOOTSTRAP OPERATIONS                */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    // A bootstrap is a minimal UUPS implementation that allows an ERC1967 proxy
+    // pointing to it to be upgraded. The ERC1967 proxy can then be deployed to a
+    // deterministic address independent of the implementation:
+    // ```
+    //     address bootstrap = LibClone.erc1967Bootstrap();
+    //     address instance = LibClone.deployDeterministicERC1967(0, bootstrap, salt);
+    //     LibClone.bootstrapERC1967(bootstrap, implementation);
+    // ```
+
+    /// @dev Deploys the ERC1967 bootstrap if it has not been deployed.
+    function erc1967Bootstrap() internal returns (address) {
+        return erc1967Bootstrap(address(this));
+    }
+
+    /// @dev Deploys the ERC1967 bootstrap if it has not been deployed.
+    function erc1967Bootstrap(address authorizedUpgrader) internal returns (address bootstrap) {
+        bytes memory c = initCodeERC1967Bootstrap(authorizedUpgrader);
+        bootstrap = predictDeterministicAddress(keccak256(c), bytes32(0), address(this));
+        /// @solidity memory-safe-assembly
+        assembly {
+            if iszero(extcodesize(bootstrap)) {
+                if iszero(create2(0, add(c, 0x20), mload(c), 0)) {
+                    mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                    revert(0x1c, 0x04)
+                }
+            }
+        }
+    }
+
+    /// @dev Replaces the implementation at `instance`.
+    function bootstrapERC1967(address instance, address implementation) internal {
+        /// @solidity memory-safe-assembly
+        assembly {
+            mstore(0x00, implementation)
+            if iszero(call(gas(), instance, 0, 0x0c, 0x14, codesize(), 0x00)) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
+    /// @dev Replaces the implementation at `instance`, and then call it with `data`.
+    function bootstrapERC1967AndCall(address instance, address implementation, bytes memory data) internal {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let n := mload(data)
+            mstore(data, implementation)
+            if iszero(call(gas(), instance, 0, add(data, 0x0c), add(n, 0x14), codesize(), 0x00)) {
+                if iszero(returndatasize()) {
+                    mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                returndatacopy(mload(0x40), 0x00, returndatasize())
+                revert(mload(0x40), returndatasize())
+            }
+            mstore(data, n) // Restore the length of `data`.
+        }
+    }
+
+    /// @dev Returns the implementation address of the ERC1967 bootstrap for this contract.
+    function predictDeterministicAddressERC1967Bootstrap() internal view returns (address) {
+        return predictDeterministicAddressERC1967Bootstrap(address(this), address(this));
+    }
+
+    /// @dev Returns the implementation address of the ERC1967 bootstrap for this contract.
+    function predictDeterministicAddressERC1967Bootstrap(
+        address authorizedUpgrader,
+        address deployer
+    ) internal pure returns (address) {
+        bytes32 hash = initCodeHashERC1967Bootstrap(authorizedUpgrader);
+        return predictDeterministicAddress(hash, bytes32(0), deployer);
+    }
+
+    /// @dev Returns the initialization code of the ERC1967 bootstrap.
+    function initCodeERC1967Bootstrap(address authorizedUpgrader) internal pure returns (bytes memory c) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            c := mload(0x40)
+            mstore(add(c, 0x80), 0x3d3560601c5af46047573d6000383e3d38fd0000000000000000000000000000)
+            mstore(add(c, 0x60), 0xa920a3ca505d382bbc55601436116049575b005b363d3d373d3d601436036014)
+            mstore(add(c, 0x40), 0x0338573d3560601c7f360894a13ba1a3210667c828492db98dca3e2076cc3735)
+            mstore(add(c, 0x20), authorizedUpgrader)
+            mstore(add(c, 0x0c), 0x606880600a3d393df3fe3373)
+            mstore(c, 0x72)
+            mstore(0x40, add(c, 0xa0))
+        }
+    }
+
+    /// @dev Returns the initialization code hash of the ERC1967 bootstrap.
+    function initCodeHashERC1967Bootstrap(address authorizedUpgrader) internal pure returns (bytes32) {
+        return keccak256(initCodeERC1967Bootstrap(authorizedUpgrader));
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*          MINIMAL ERC1967 BEACON PROXY OPERATIONS           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    // Note: If you use this proxy, you MUST make sure that the beacon is a
+    // valid ERC1967 beacon. This means that the beacon must always return a valid
+    // address upon a staticcall to `implementation()`, given sufficient gas.
+    // For performance, the deployment operations and the proxy assumes that the
+    // beacon is always valid and will NOT validate it.
+
+    /// @dev Deploys a minimal ERC1967 beacon proxy.
+    function deployERC1967BeaconProxy(address beacon) internal returns (address instance) {
+        instance = deployERC1967BeaconProxy(0, beacon);
+    }
+
+    /// @dev Deploys a minimal ERC1967 beacon proxy.
+    /// Deposits `value` ETH during deployment.
+    function deployERC1967BeaconProxy(uint256 value, address beacon) internal returns (address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            /**
+             * ---------------------------------------------------------------------------------+
+             * CREATION (34 bytes)                                                              |
+             * ---------------------------------------------------------------------------------|
+             * Opcode     | Mnemonic       | Stack            | Memory                          |
+             * ---------------------------------------------------------------------------------|
+             * 60 runSize | PUSH1 runSize  | r                |                                 |
+             * 3d         | RETURNDATASIZE | 0 r              |                                 |
+             * 81         | DUP2           | r 0 r            |                                 |
+             * 60 offset  | PUSH1 offset   | o r 0 r          |                                 |
+             * 3d         | RETURNDATASIZE | 0 o r 0 r        |                                 |
+             * 39         | CODECOPY       | 0 r              | [0..runSize): runtime code      |
+             * 73 beac    | PUSH20 beac    | beac 0 r         | [0..runSize): runtime code      |
+             * 60 slotPos | PUSH1 slotPos  | slotPos beac 0 r | [0..runSize): runtime code      |
+             * 51         | MLOAD          | slot beac 0 r    | [0..runSize): runtime code      |
+             * 55         | SSTORE         | 0 r              | [0..runSize): runtime code      |
+             * f3         | RETURN         |                  | [0..runSize): runtime code      |
+             * ---------------------------------------------------------------------------------|
+             * RUNTIME (82 bytes)                                                               |
+             * ---------------------------------------------------------------------------------|
+             * Opcode     | Mnemonic       | Stack            | Memory                          |
+             * ---------------------------------------------------------------------------------|
+             *                                                                                  |
+             * ::: copy calldata to memory :::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 36         | CALLDATASIZE   | cds              |                                 |
+             * 3d         | RETURNDATASIZE | 0 cds            |                                 |
+             * 3d         | RETURNDATASIZE | 0 0 cds          |                                 |
+             * 37         | CALLDATACOPY   |                  | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ::: delegatecall to implementation ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | 0                |                                 |
+             * 3d         | RETURNDATASIZE | 0 0              |                                 |
+             * 36         | CALLDATASIZE   | cds 0 0          | [0..calldatasize): calldata     |
+             * 3d         | RETURNDATASIZE | 0 cds 0 0        | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ~~~~~~~ beacon staticcall sub procedure ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
+             * 60 0x20       | PUSH1 0x20       | 32                          |                 |
+             * 36            | CALLDATASIZE     | cds 32                      |                 |
+             * 60 0x04       | PUSH1 0x04       | 4 cds 32                    |                 |
+             * 36            | CALLDATASIZE     | cds 4 cds 32                |                 |
+             * 63 0x5c60da1b | PUSH4 0x5c60da1b | 0x5c60da1b cds 4 cds 32     |                 |
+             * 60 0xe0       | PUSH1 0xe0       | 224 0x5c60da1b cds 4 cds 32 |                 |
+             * 1b            | SHL              | sel cds 4 cds 32            |                 |
+             * 36            | CALLDATASIZE     | cds sel cds 4 cds 32        |                 |
+             * 52            | MSTORE           | cds 4 cds 32                | sel             |
+             * 7f slot       | PUSH32 slot      | s cds 4 cds 32              | sel             |
+             * 54            | SLOAD            | beac cds 4 cds 32           | sel             |
+             * 5a            | GAS              | g beac cds 4 cds 32         | sel             |
+             * fa            | STATICCALL       | succ                        | impl            |
+             * 50            | POP              |                             | impl            |
+             * 36            | CALLDATASIZE     | cds                         | impl            |
+             * 51            | MLOAD            | impl                        | impl            |
+             * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
+             * 5a         | GAS            | g impl 0 cds 0 0 | [0..calldatasize): calldata     |
+             * f4         | DELEGATECALL   | succ             | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ::: copy returndata to memory :::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | rds succ         | [0..calldatasize): calldata     |
+             * 60 0x00    | PUSH1 0x00     | 0 rds succ       | [0..calldatasize): calldata     |
+             * 80         | DUP1           | 0 0 rds succ     | [0..calldatasize): calldata     |
+             * 3e         | RETURNDATACOPY | succ             | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: branch on delegatecall status :::::::::::::::::::::::::::::::::::::::::::::: |
+             * 60 0x4d    | PUSH1 0x4d     | dest succ        | [0..returndatasize): returndata |
+             * 57         | JUMPI          |                  | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: delegatecall failed, revert :::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | rds              | [0..returndatasize): returndata |
+             * 60 0x00    | PUSH1 0x00     | 0 rds            | [0..returndatasize): returndata |
+             * fd         | REVERT         |                  | [0..returndatasize): returndata |
+             *                                                                                  |
+             * ::: delegatecall succeeded, return ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 5b         | JUMPDEST       |                  | [0..returndatasize): returndata |
+             * 3d         | RETURNDATASIZE | rds              | [0..returndatasize): returndata |
+             * 60 0x00    | PUSH1 0x00     | 0 rds            | [0..returndatasize): returndata |
+             * f3         | RETURN         |                  | [0..returndatasize): returndata |
+             * ---------------------------------------------------------------------------------+
+             */
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(0x40, 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(0x20, 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(0x09, or(shl(160, 0x60523d8160223d3973), shr(96, shl(96, beacon))))
+            instance := create(value, 0x0c, 0x74)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
+        }
+    }
+
+    /// @dev Deploys a deterministic minimal ERC1967 beacon proxy with `salt`.
+    function deployDeterministicERC1967BeaconProxy(address beacon, bytes32 salt) internal returns (address instance) {
+        instance = deployDeterministicERC1967BeaconProxy(0, beacon, salt);
+    }
+
+    /// @dev Deploys a deterministic minimal ERC1967 beacon proxy with `salt`.
+    /// Deposits `value` ETH during deployment.
+    function deployDeterministicERC1967BeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes32 salt
+    ) internal returns (address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(0x40, 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(0x20, 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(0x09, or(shl(160, 0x60523d8160223d3973), shr(96, shl(96, beacon))))
+            instance := create2(value, 0x0c, 0x74, salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
+        }
+    }
+
+    /// @dev Creates a deterministic minimal ERC1967 beacon proxy with `salt`.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967BeaconProxy(
+        address beacon,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        return createDeterministicERC1967BeaconProxy(0, beacon, salt);
+    }
+
+    /// @dev Creates a deterministic minimal ERC1967 beacon proxy with `salt`.
+    /// Deposits `value` ETH during deployment.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967BeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(0x40, 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(0x20, 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(0x09, or(shl(160, 0x60523d8160223d3973), shr(96, shl(96, beacon))))
+            // Compute and store the bytecode hash.
+            mstore(add(m, 0x35), keccak256(0x0c, 0x74))
+            mstore(m, shl(88, address()))
+            mstore8(m, 0xff) // Write the prefix.
+            mstore(add(m, 0x15), salt)
+            instance := keccak256(m, 0x55)
+            for {
+
+            } 1 {
+
+            } {
+                if iszero(extcodesize(instance)) {
+                    instance := create2(value, 0x0c, 0x74, salt)
+                    if iszero(instance) {
+                        mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                        revert(0x1c, 0x04)
+                    }
+                    break
+                }
+                alreadyDeployed := 1
+                if iszero(value) {
+                    break
+                }
+                if iszero(call(gas(), instance, value, codesize(), 0x00, codesize(), 0x00)) {
+                    mstore(0x00, 0xb12d13eb) // `ETHTransferFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                break
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
+        }
+    }
+
+    /// @dev Returns the initialization code of the minimal ERC1967 beacon proxy.
+    function initCodeERC1967BeaconProxy(address beacon) internal pure returns (bytes memory c) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            c := mload(0x40)
+            mstore(add(c, 0x74), 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(add(c, 0x54), 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(add(c, 0x34), 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(add(c, 0x1d), beacon)
+            mstore(add(c, 0x09), 0x60523d8160223d3973)
+            mstore(add(c, 0x94), 0)
+            mstore(c, 0x74) // Store the length.
+            mstore(0x40, add(c, 0xa0)) // Allocate memory.
+        }
+    }
+
+    /// @dev Returns the initialization code hash of the minimal ERC1967 beacon proxy.
+    function initCodeHashERC1967BeaconProxy(address beacon) internal pure returns (bytes32 hash) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(0x40, 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(0x20, 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(0x09, or(shl(160, 0x60523d8160223d3973), shr(96, shl(96, beacon))))
+            hash := keccak256(0x0c, 0x74)
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
+        }
+    }
+
+    /// @dev Returns the address of the ERC1967 beacon proxy, with `salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddressERC1967BeaconProxy(
+        address beacon,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHashERC1967BeaconProxy(beacon);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*    ERC1967 BEACON PROXY WITH IMMUTABLE ARGS OPERATIONS     */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Deploys a minimal ERC1967 beacon proxy with `args`.
+    function deployERC1967BeaconProxy(address beacon, bytes memory args) internal returns (address instance) {
+        instance = deployERC1967BeaconProxy(0, beacon, args);
+    }
+
+    /// @dev Deploys a minimal ERC1967 beacon proxy with `args`.
+    /// Deposits `value` ETH during deployment.
+    function deployERC1967BeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes memory args
+    ) internal returns (address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x8b), n))
+            mstore(add(m, 0x6b), 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(add(m, 0x4b), 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(add(m, 0x2b), 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(add(m, 0x14), beacon)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            mstore(add(m, gt(n, 0xffad)), add(0xfe6100523d8160233d3973, shl(56, n)))
+            instance := create(value, add(m, 0x16), add(n, 0x75))
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
+    /// @dev Deploys a deterministic minimal ERC1967 beacon proxy with `args` and `salt`.
+    function deployDeterministicERC1967BeaconProxy(
+        address beacon,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
+        instance = deployDeterministicERC1967BeaconProxy(0, beacon, args, salt);
+    }
+
+    /// @dev Deploys a deterministic minimal ERC1967 beacon proxy with `args` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    function deployDeterministicERC1967BeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x8b), n))
+            mstore(add(m, 0x6b), 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(add(m, 0x4b), 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(add(m, 0x2b), 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(add(m, 0x14), beacon)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            mstore(add(m, gt(n, 0xffad)), add(0xfe6100523d8160233d3973, shl(56, n)))
+            instance := create2(value, add(m, 0x16), add(n, 0x75), salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
+    /// @dev Creates a deterministic minimal ERC1967 beacon proxy with `args` and `salt`.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967BeaconProxy(
+        address beacon,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        return createDeterministicERC1967BeaconProxy(0, beacon, args, salt);
+    }
+
+    /// @dev Creates a deterministic minimal ERC1967 beacon proxy with `args` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967BeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x8b), n))
+            mstore(add(m, 0x6b), 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(add(m, 0x4b), 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(add(m, 0x2b), 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(add(m, 0x14), beacon)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            mstore(add(m, gt(n, 0xffad)), add(0xfe6100523d8160233d3973, shl(56, n)))
+            // Compute and store the bytecode hash.
+            mstore8(0x00, 0xff) // Write the prefix.
+            mstore(0x35, keccak256(add(m, 0x16), add(n, 0x75)))
+            mstore(0x01, shl(96, address()))
+            mstore(0x15, salt)
+            instance := keccak256(0x00, 0x55)
+            for {
+
+            } 1 {
+
+            } {
+                if iszero(extcodesize(instance)) {
+                    instance := create2(value, add(m, 0x16), add(n, 0x75), salt)
+                    if iszero(instance) {
+                        mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                        revert(0x1c, 0x04)
+                    }
+                    break
+                }
+                alreadyDeployed := 1
+                if iszero(value) {
+                    break
+                }
+                if iszero(call(gas(), instance, value, codesize(), 0x00, codesize(), 0x00)) {
+                    mstore(0x00, 0xb12d13eb) // `ETHTransferFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                break
+            }
+            mstore(0x35, 0) // Restore the overwritten part of the free memory pointer.
+        }
+    }
+
+    /// @dev Returns the initialization code of the minimal ERC1967 beacon proxy.
+    function initCodeERC1967BeaconProxy(address beacon, bytes memory args) internal pure returns (bytes memory c) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            c := mload(0x40)
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffad))
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(c, 0x95), i), mload(add(add(args, 0x20), i)))
+            }
+            mstore(add(c, 0x75), 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(add(c, 0x55), 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(add(c, 0x35), 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(add(c, 0x1e), beacon)
+            mstore(add(c, 0x0a), add(0x6100523d8160233d3973, shl(56, n)))
+            mstore(c, add(n, 0x75)) // Store the length.
+            mstore(add(c, add(n, 0x95)), 0) // Zeroize the slot after the bytes.
+            mstore(0x40, add(c, add(n, 0xb5))) // Allocate memory.
+        }
+    }
+
+    /// @dev Returns the initialization code hash of the minimal ERC1967 beacon proxy with `args`.
+    function initCodeHashERC1967BeaconProxy(address beacon, bytes memory args) internal pure returns (bytes32 hash) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40)
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x52 = 0xffad`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffad))
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(m, 0x8b), i), mload(add(add(args, 0x20), i)))
+            }
+            mstore(add(m, 0x6b), 0xb3582b35133d50545afa5036515af43d6000803e604d573d6000fd5b3d6000f3)
+            mstore(add(m, 0x4b), 0x1b60e01b36527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6c)
+            mstore(add(m, 0x2b), 0x60195155f3363d3d373d3d363d602036600436635c60da)
+            mstore(add(m, 0x14), beacon)
+            mstore(m, add(0x6100523d8160233d3973, shl(56, n)))
+            hash := keccak256(add(m, 0x16), add(n, 0x75))
+        }
+    }
+
+    /// @dev Returns the address of the ERC1967 beacon proxy with `args`, with `salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddressERC1967BeaconProxy(
+        address beacon,
+        bytes memory args,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHashERC1967BeaconProxy(beacon, args);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /// @dev Equivalent to `argsOnERC1967BeaconProxy(instance, start, 2 ** 256 - 1)`.
+    function argsOnERC1967BeaconProxy(address instance) internal view returns (bytes memory args) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            args := mload(0x40)
+            mstore(args, and(0xffffffffff, sub(extcodesize(instance), 0x52))) // Store the length.
+            extcodecopy(instance, add(args, 0x20), 0x52, add(mload(args), 0x20))
+            mstore(0x40, add(mload(args), add(args, 0x40))) // Allocate memory.
+        }
+    }
+
+    /// @dev Equivalent to `argsOnERC1967BeaconProxy(instance, start, 2 ** 256 - 1)`.
+    function argsOnERC1967BeaconProxy(address instance, uint256 start) internal view returns (bytes memory args) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            args := mload(0x40)
+            let n := and(0xffffffffff, sub(extcodesize(instance), 0x52))
+            let l := sub(n, and(0xffffff, mul(lt(start, n), start)))
+            extcodecopy(instance, args, add(start, 0x32), add(l, 0x40))
+            mstore(args, mul(sub(n, start), lt(start, n))) // Store the length.
+            mstore(0x40, add(args, add(0x40, mload(args)))) // Allocate memory.
+        }
+    }
+
+    /// @dev Returns a slice of the immutable arguments on `instance` from `start` to `end`.
+    /// `start` and `end` will be clamped to the range `[0, args.length]`.
+    /// The `instance` MUST be deployed via the ERC1967 beacon proxy with immutable args functions.
+    /// Otherwise, the behavior is undefined.
+    /// Out-of-gas reverts if `instance` does not have any code.
+    function argsOnERC1967BeaconProxy(
+        address instance,
+        uint256 start,
+        uint256 end
+    ) internal view returns (bytes memory args) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            args := mload(0x40)
+            if iszero(lt(end, 0xffff)) {
+                end := 0xffff
+            }
+            let d := mul(sub(end, start), lt(start, end))
+            extcodecopy(instance, args, add(start, 0x32), add(d, 0x20))
+            if iszero(and(0xff, mload(add(args, d)))) {
+                let n := sub(extcodesize(instance), 0x52)
+                returndatacopy(returndatasize(), returndatasize(), shr(40, n))
+                d := mul(gt(n, start), sub(d, mul(gt(end, n), sub(end, n))))
+            }
+            mstore(args, d) // Store the length.
+            mstore(add(add(args, 0x20), d), 0) // Zeroize the slot after the bytes.
+            mstore(0x40, add(add(args, 0x40), d)) // Allocate memory.
+        }
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*              ERC1967I BEACON PROXY OPERATIONS              */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    // Note: This proxy has a special code path that activates if `calldatasize() == 1`.
+    // This code path skips the delegatecall and directly returns the `implementation` address.
+    // The returned implementation is guaranteed to be valid if the keccak256 of the
+    // proxy's code is equal to `ERC1967_BEACON_PROXY_CODE_HASH`.
+    //
+    // If you use this proxy, you MUST make sure that the beacon is a
+    // valid ERC1967 beacon. This means that the beacon must always return a valid
+    // address upon a staticcall to `implementation()`, given sufficient gas.
+    // For performance, the deployment operations and the proxy assumes that the
+    // beacon is always valid and will NOT validate it.
+
+    /// @dev Deploys a ERC1967I beacon proxy.
+    function deployERC1967IBeaconProxy(address beacon) internal returns (address instance) {
+        instance = deployERC1967IBeaconProxy(0, beacon);
+    }
+
+    /// @dev Deploys a ERC1967I beacon proxy.
+    /// Deposits `value` ETH during deployment.
+    function deployERC1967IBeaconProxy(uint256 value, address beacon) internal returns (address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            /**
+             * ---------------------------------------------------------------------------------+
+             * CREATION (34 bytes)                                                              |
+             * ---------------------------------------------------------------------------------|
+             * Opcode     | Mnemonic       | Stack            | Memory                          |
+             * ---------------------------------------------------------------------------------|
+             * 60 runSize | PUSH1 runSize  | r                |                                 |
+             * 3d         | RETURNDATASIZE | 0 r              |                                 |
+             * 81         | DUP2           | r 0 r            |                                 |
+             * 60 offset  | PUSH1 offset   | o r 0 r          |                                 |
+             * 3d         | RETURNDATASIZE | 0 o r 0 r        |                                 |
+             * 39         | CODECOPY       | 0 r              | [0..runSize): runtime code      |
+             * 73 beac    | PUSH20 beac    | beac 0 r         | [0..runSize): runtime code      |
+             * 60 slotPos | PUSH1 slotPos  | slotPos beac 0 r | [0..runSize): runtime code      |
+             * 51         | MLOAD          | slot beac 0 r    | [0..runSize): runtime code      |
+             * 55         | SSTORE         | 0 r              | [0..runSize): runtime code      |
+             * f3         | RETURN         |                  | [0..runSize): runtime code      |
+             * ---------------------------------------------------------------------------------|
+             * RUNTIME (87 bytes)                                                               |
+             * ---------------------------------------------------------------------------------|
+             * Opcode     | Mnemonic       | Stack            | Memory                          |
+             * ---------------------------------------------------------------------------------|
+             *                                                                                  |
+             * ::: copy calldata to memory :::::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 36         | CALLDATASIZE   | cds              |                                 |
+             * 3d         | RETURNDATASIZE | 0 cds            |                                 |
+             * 3d         | RETURNDATASIZE | 0 0 cds          |                                 |
+             * 37         | CALLDATACOPY   |                  | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ::: delegatecall to implementation ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | 0                |                                 |
+             * 3d         | RETURNDATASIZE | 0 0              |                                 |
+             * 36         | CALLDATASIZE   | cds 0 0          | [0..calldatasize): calldata     |
+             * 3d         | RETURNDATASIZE | 0 cds 0 0        | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ~~~~~~~ beacon staticcall sub procedure ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
+             * 60 0x20       | PUSH1 0x20       | 32                          |                 |
+             * 36            | CALLDATASIZE     | cds 32                      |                 |
+             * 60 0x04       | PUSH1 0x04       | 4 cds 32                    |                 |
+             * 36            | CALLDATASIZE     | cds 4 cds 32                |                 |
+             * 63 0x5c60da1b | PUSH4 0x5c60da1b | 0x5c60da1b cds 4 cds 32     |                 |
+             * 60 0xe0       | PUSH1 0xe0       | 224 0x5c60da1b cds 4 cds 32 |                 |
+             * 1b            | SHL              | sel cds 4 cds 32            |                 |
+             * 36            | CALLDATASIZE     | cds sel cds 4 cds 32        |                 |
+             * 52            | MSTORE           | cds 4 cds 32                | sel             |
+             * 7f slot       | PUSH32 slot      | s cds 4 cds 32              | sel             |
+             * 54            | SLOAD            | beac cds 4 cds 32           | sel             |
+             * 5a            | GAS              | g beac cds 4 cds 32         | sel             |
+             * fa            | STATICCALL       | succ                        | impl            |
+             * ~~~~~~ check calldatasize ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
+             * 36            | CALLDATASIZE     | cds succ                    |                 |
+             * 14            | EQ               |                             | impl            |
+             * 60 0x52       | PUSH1 0x52       |                             | impl            |
+             * 57            | JUMPI            |                             | impl            |
+             * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
+             * 36            | CALLDATASIZE     | cds                         | impl            |
+             * 51            | MLOAD            | impl                        | impl            |
+             * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
+             * 5a         | GAS            | g impl 0 cds 0 0 | [0..calldatasize): calldata     |
+             * f4         | DELEGATECALL   | succ             | [0..calldatasize): calldata     |
+             *                                                                                  |
+             * ::: copy returndata to memory :::::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | rds succ         | [0..calldatasize): calldata     |
+             * 60 0x00    | PUSH1 0x00     | 0 rds succ       | [0..calldatasize): calldata     |
+             * 60 0x01    | PUSH1 0x01     | 1 0 rds succ     | [0..calldatasize): calldata     |
+             * 3e         | RETURNDATACOPY | succ             | [1..returndatasize): returndata |
+             *                                                                                  |
+             * ::: branch on delegatecall status :::::::::::::::::::::::::::::::::::::::::::::: |
+             * 60 0x52    | PUSH1 0x52     | dest succ        | [1..returndatasize): returndata |
+             * 57         | JUMPI          |                  | [1..returndatasize): returndata |
+             *                                                                                  |
+             * ::: delegatecall failed, revert :::::::::::::::::::::::::::::::::::::::::::::::: |
+             * 3d         | RETURNDATASIZE | rds              | [1..returndatasize): returndata |
+             * 60 0x01    | PUSH1 0x01     | 1 rds            | [1..returndatasize): returndata |
+             * fd         | REVERT         |                  | [1..returndatasize): returndata |
+             *                                                                                  |
+             * ::: delegatecall succeeded, return ::::::::::::::::::::::::::::::::::::::::::::: |
+             * 5b         | JUMPDEST       |                  | [1..returndatasize): returndata |
+             * 3d         | RETURNDATASIZE | rds              | [1..returndatasize): returndata |
+             * 60 0x01    | PUSH1 0x01     | 1 rds            | [1..returndatasize): returndata |
+             * f3         | RETURN         |                  | [1..returndatasize): returndata |
+             * ---------------------------------------------------------------------------------+
+             */
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(0x40, 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(0x20, 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(0x04, or(shl(160, 0x60573d8160223d3973), shr(96, shl(96, beacon))))
+            instance := create(value, 0x07, 0x79)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
+        }
+    }
+
+    /// @dev Deploys a deterministic ERC1967I beacon proxy with `salt`.
+    function deployDeterministicERC1967IBeaconProxy(address beacon, bytes32 salt) internal returns (address instance) {
+        instance = deployDeterministicERC1967IBeaconProxy(0, beacon, salt);
+    }
+
+    /// @dev Deploys a deterministic ERC1967I beacon proxy with `salt`.
+    /// Deposits `value` ETH during deployment.
+    function deployDeterministicERC1967IBeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes32 salt
+    ) internal returns (address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(0x40, 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(0x20, 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(0x04, or(shl(160, 0x60573d8160223d3973), shr(96, shl(96, beacon))))
+            instance := create2(value, 0x07, 0x79, salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
+        }
+    }
+
+    /// @dev Creates a deterministic ERC1967I beacon proxy with `salt`.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967IBeaconProxy(
+        address beacon,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        return createDeterministicERC1967IBeaconProxy(0, beacon, salt);
+    }
+
+    /// @dev Creates a deterministic ERC1967I beacon proxy with `salt`.
+    /// Deposits `value` ETH during deployment.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967IBeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(0x40, 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(0x20, 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(0x04, or(shl(160, 0x60573d8160223d3973), shr(96, shl(96, beacon))))
+            // Compute and store the bytecode hash.
+            mstore(add(m, 0x35), keccak256(0x07, 0x79))
+            mstore(m, shl(88, address()))
+            mstore8(m, 0xff) // Write the prefix.
+            mstore(add(m, 0x15), salt)
+            instance := keccak256(m, 0x55)
+            for {
+
+            } 1 {
+
+            } {
+                if iszero(extcodesize(instance)) {
+                    instance := create2(value, 0x07, 0x79, salt)
+                    if iszero(instance) {
+                        mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                        revert(0x1c, 0x04)
+                    }
+                    break
+                }
+                alreadyDeployed := 1
+                if iszero(value) {
+                    break
+                }
+                if iszero(call(gas(), instance, value, codesize(), 0x00, codesize(), 0x00)) {
+                    mstore(0x00, 0xb12d13eb) // `ETHTransferFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                break
+            }
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
+        }
+    }
+
+    /// @dev Returns the initialization code of the ERC1967I beacon proxy.
+    function initCodeERC1967IBeaconProxy(address beacon) internal pure returns (bytes memory c) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            c := mload(0x40)
+            mstore(add(c, 0x79), 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(add(c, 0x59), 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(add(c, 0x39), 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(add(c, 0x1d), beacon)
+            mstore(add(c, 0x09), 0x60573d8160223d3973)
+            mstore(add(c, 0x99), 0)
+            mstore(c, 0x79) // Store the length.
+            mstore(0x40, add(c, 0xa0)) // Allocate memory.
+        }
+    }
+
+    /// @dev Returns the initialization code hash of the ERC1967I beacon proxy.
+    function initCodeHashERC1967IBeaconProxy(address beacon) internal pure returns (bytes32 hash) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40) // Cache the free memory pointer.
+            mstore(0x60, 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(0x40, 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(0x20, 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(0x04, or(shl(160, 0x60573d8160223d3973), shr(96, shl(96, beacon))))
+            hash := keccak256(0x07, 0x79)
+            mstore(0x40, m) // Restore the free memory pointer.
+            mstore(0x60, 0) // Restore the zero slot.
+        }
+    }
+
+    /// @dev Returns the address of the ERC1967I beacon proxy, with `salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddressERC1967IBeaconProxy(
+        address beacon,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHashERC1967IBeaconProxy(beacon);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*    ERC1967I BEACON PROXY WITH IMMUTABLE ARGS OPERATIONS    */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Deploys a ERC1967I beacon proxy with `args.
+    function deployERC1967IBeaconProxy(address beacon, bytes memory args) internal returns (address instance) {
+        instance = deployERC1967IBeaconProxy(0, beacon, args);
+    }
+
+    /// @dev Deploys a ERC1967I beacon proxy with `args.
+    /// Deposits `value` ETH during deployment.
+    function deployERC1967IBeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes memory args
+    ) internal returns (address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40) // Cache the free memory pointer.
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x90), n))
+            mstore(add(m, 0x70), 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(add(m, 0x50), 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(add(m, 0x30), 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(add(m, 0x14), beacon)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x57 = 0xffa8`.
+            mstore(add(m, gt(n, 0xffa8)), add(0xfe6100573d8160233d3973, shl(56, n)))
+            instance := create(value, add(m, 0x16), add(n, 0x7a))
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
+    /// @dev Deploys a deterministic ERC1967I beacon proxy with `args` and `salt`.
+    function deployDeterministicERC1967IBeaconProxy(
+        address beacon,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
+        instance = deployDeterministicERC1967IBeaconProxy(0, beacon, args, salt);
+    }
+
+    /// @dev Deploys a deterministic ERC1967I beacon proxy with `args` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    function deployDeterministicERC1967IBeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40) // Cache the free memory pointer.
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x90), n))
+            mstore(add(m, 0x70), 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(add(m, 0x50), 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(add(m, 0x30), 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(add(m, 0x14), beacon)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x57 = 0xffa8`.
+            mstore(add(m, gt(n, 0xffa8)), add(0xfe6100573d8160233d3973, shl(56, n)))
+            instance := create2(value, add(m, 0x16), add(n, 0x7a), salt)
+            if iszero(instance) {
+                mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
+    /// @dev Creates a deterministic ERC1967I beacon proxy with `args` and `salt`.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967IBeaconProxy(
+        address beacon,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        return createDeterministicERC1967IBeaconProxy(0, beacon, args, salt);
+    }
+
+    /// @dev Creates a deterministic ERC1967I beacon proxy with `args` and `salt`.
+    /// Deposits `value` ETH during deployment.
+    /// Note: This method is intended for use in ERC4337 factories,
+    /// which are expected to NOT revert if the proxy is already deployed.
+    function createDeterministicERC1967IBeaconProxy(
+        uint256 value,
+        address beacon,
+        bytes memory args,
+        bytes32 salt
+    ) internal returns (bool alreadyDeployed, address instance) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let m := mload(0x40)
+            let n := mload(args)
+            pop(staticcall(gas(), 4, add(args, 0x20), n, add(m, 0x90), n))
+            mstore(add(m, 0x70), 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(add(m, 0x50), 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(add(m, 0x30), 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(add(m, 0x14), beacon)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x57 = 0xffa8`.
+            mstore(add(m, gt(n, 0xffa8)), add(0xfe6100573d8160233d3973, shl(56, n)))
+            // Compute and store the bytecode hash.
+            mstore8(0x00, 0xff) // Write the prefix.
+            mstore(0x35, keccak256(add(m, 0x16), add(n, 0x7a)))
+            mstore(0x01, shl(96, address()))
+            mstore(0x15, salt)
+            instance := keccak256(0x00, 0x55)
+            for {
+
+            } 1 {
+
+            } {
+                if iszero(extcodesize(instance)) {
+                    instance := create2(value, add(m, 0x16), add(n, 0x7a), salt)
+                    if iszero(instance) {
+                        mstore(0x00, 0x30116425) // `DeploymentFailed()`.
+                        revert(0x1c, 0x04)
+                    }
+                    break
+                }
+                alreadyDeployed := 1
+                if iszero(value) {
+                    break
+                }
+                if iszero(call(gas(), instance, value, codesize(), 0x00, codesize(), 0x00)) {
+                    mstore(0x00, 0xb12d13eb) // `ETHTransferFailed()`.
+                    revert(0x1c, 0x04)
+                }
+                break
+            }
+            mstore(0x35, 0) // Restore the overwritten part of the free memory pointer.
+        }
+    }
+
+    /// @dev Returns the initialization code of the ERC1967I beacon proxy with `args`.
+    function initCodeERC1967IBeaconProxy(address beacon, bytes memory args) internal pure returns (bytes memory c) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            c := mload(0x40)
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x57 = 0xffa8`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffa8))
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(c, 0x9a), i), mload(add(add(args, 0x20), i)))
+            }
+            mstore(add(c, 0x7a), 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(add(c, 0x5a), 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(add(c, 0x3a), 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(add(c, 0x1e), beacon)
+            mstore(add(c, 0x0a), add(0x6100573d8160233d3973, shl(56, n)))
+            mstore(add(c, add(n, 0x9a)), 0)
+            mstore(c, add(n, 0x7a)) // Store the length.
+            mstore(0x40, add(c, add(n, 0xba))) // Allocate memory.
+        }
+    }
+
+    /// @dev Returns the initialization code hash of the ERC1967I beacon proxy with `args`.
+    function initCodeHashERC1967IBeaconProxy(address beacon, bytes memory args) internal pure returns (bytes32 hash) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            let c := mload(0x40) // Cache the free memory pointer.
+            let n := mload(args)
+            // Do a out-of-gas revert if `n` is greater than `0xffff - 0x57 = 0xffa8`.
+            returndatacopy(returndatasize(), returndatasize(), gt(n, 0xffa8))
+            for {
+                let i := 0
+            } lt(i, n) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(add(c, 0x90), i), mload(add(add(args, 0x20), i)))
+            }
+            mstore(add(c, 0x70), 0x3d50545afa361460525736515af43d600060013e6052573d6001fd5b3d6001f3)
+            mstore(add(c, 0x50), 0x527fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b3513)
+            mstore(add(c, 0x30), 0x60195155f3363d3d373d3d363d602036600436635c60da1b60e01b36)
+            mstore(add(c, 0x14), beacon)
+            mstore(c, add(0x6100573d8160233d3973, shl(56, n)))
+            hash := keccak256(add(c, 0x16), add(n, 0x7a))
+        }
+    }
+
+    /// @dev Returns the address of the ERC1967I beacon proxy, with  `args` and salt` by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddressERC1967IBeaconProxy(
+        address beacon,
+        bytes memory args,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        bytes32 hash = initCodeHashERC1967IBeaconProxy(beacon, args);
+        predicted = predictDeterministicAddress(hash, salt, deployer);
+    }
+
+    /// @dev Equivalent to `argsOnERC1967IBeaconProxy(instance, start, 2 ** 256 - 1)`.
+    function argsOnERC1967IBeaconProxy(address instance) internal view returns (bytes memory args) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            args := mload(0x40)
+            mstore(args, and(0xffffffffff, sub(extcodesize(instance), 0x57))) // Store the length.
+            extcodecopy(instance, add(args, 0x20), 0x57, add(mload(args), 0x20))
+            mstore(0x40, add(mload(args), add(args, 0x40))) // Allocate memory.
+        }
+    }
+
+    /// @dev Equivalent to `argsOnERC1967IBeaconProxy(instance, start, 2 ** 256 - 1)`.
+    function argsOnERC1967IBeaconProxy(address instance, uint256 start) internal view returns (bytes memory args) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            args := mload(0x40)
+            let n := and(0xffffffffff, sub(extcodesize(instance), 0x57))
+            let l := sub(n, and(0xffffff, mul(lt(start, n), start)))
+            extcodecopy(instance, args, add(start, 0x37), add(l, 0x40))
+            mstore(args, mul(sub(n, start), lt(start, n))) // Store the length.
+            mstore(0x40, add(args, add(0x40, mload(args)))) // Allocate memory.
+        }
+    }
+
+    /// @dev Returns a slice of the immutable arguments on `instance` from `start` to `end`.
+    /// `start` and `end` will be clamped to the range `[0, args.length]`.
+    /// The `instance` MUST be deployed via the ERC1967I beacon proxy with immutable args functions.
+    /// Otherwise, the behavior is undefined.
+    /// Out-of-gas reverts if `instance` does not have any code.
+    function argsOnERC1967IBeaconProxy(
+        address instance,
+        uint256 start,
+        uint256 end
+    ) internal view returns (bytes memory args) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            args := mload(0x40)
+            if iszero(lt(end, 0xffff)) {
+                end := 0xffff
+            }
+            let d := mul(sub(end, start), lt(start, end))
+            extcodecopy(instance, args, add(start, 0x37), add(d, 0x20))
+            if iszero(and(0xff, mload(add(args, d)))) {
+                let n := sub(extcodesize(instance), 0x57)
+                returndatacopy(returndatasize(), returndatasize(), shr(40, n))
+                d := mul(gt(n, start), sub(d, mul(gt(end, n), sub(end, n))))
+            }
+            mstore(args, d) // Store the length.
+            mstore(add(add(args, 0x20), d), 0) // Zeroize the slot after the bytes.
+            mstore(0x40, add(add(args, 0x40), d)) // Allocate memory.
+        }
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                      OTHER OPERATIONS                      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Returns `address(0)` if the implementation address cannot be determined.
+    function implementationOf(address instance) internal view returns (address result) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            for {
+                extcodecopy(instance, 0x00, 0x00, 0x57)
+            } 1 {
+
+            } {
+                if mload(0x2d) {
+                    // ERC1967I and ERC1967IBeaconProxy detection.
+                    if or(
+                        eq(keccak256(0x00, 0x52), ERC1967I_CODE_HASH),
+                        eq(keccak256(0x00, 0x57), ERC1967I_BEACON_PROXY_CODE_HASH)
+                    ) {
+                        pop(staticcall(gas(), instance, 0x00, 0x01, 0x00, 0x20))
+                        result := mload(0x0c)
+                        break
+                    }
+                }
+                // 0age clone detection.
+                result := mload(0x0b)
+                codecopy(0x0b, codesize(), 0x14) // Zeroize the 20 bytes for the address.
+                if iszero(xor(keccak256(0x00, 0x2c), CLONE_CODE_HASH)) {
+                    break
+                }
+                mstore(0x0b, result) // Restore the zeroized memory.
+                // CWIA detection.
+                result := mload(0x0a)
+                codecopy(0x0a, codesize(), 0x14) // Zeroize the 20 bytes for the address.
+                if iszero(xor(keccak256(0x00, 0x2d), CWIA_CODE_HASH)) {
+                    break
+                }
+                mstore(0x0a, result) // Restore the zeroized memory.
+                // PUSH0 clone detection.
+                result := mload(0x09)
+                codecopy(0x09, codesize(), 0x14) // Zeroize the 20 bytes for the address.
+                result := shr(xor(keccak256(0x00, 0x2d), PUSH0_CLONE_CODE_HASH), result)
+                break
+            }
+            result := shr(96, result)
+            mstore(0x37, 0) // Restore the overwritten part of the free memory pointer.
+        }
+    }
+
+    /// @dev Returns the address when a contract with initialization code hash,
+    /// `hash`, is deployed with `salt`, by `deployer`.
+    /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
+    function predictDeterministicAddress(
+        bytes32 hash,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            // Compute and store the bytecode hash.
+            mstore8(0x00, 0xff) // Write the prefix.
+            mstore(0x35, hash)
+            mstore(0x01, shl(96, deployer))
+            mstore(0x15, salt)
+            predicted := keccak256(0x00, 0x55)
+            mstore(0x35, 0) // Restore the overwritten part of the free memory pointer.
+        }
+    }
+
+    /// @dev Requires that `salt` starts with either the zero address or `by`.
+    function checkStartsWith(bytes32 salt, address by) internal pure {
+        /// @solidity memory-safe-assembly
+        assembly {
+            // If the salt does not start with the zero address or `by`.
+            if iszero(or(iszero(shr(96, salt)), eq(shr(96, shl(96, by)), shr(96, salt)))) {
+                mstore(0x00, 0x0c4549ef) // `SaltDoesNotStartWith()`.
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
+    /// @dev Returns the `bytes32` at `offset` in `args`, without any bounds checks.
+    /// To load an address, you can use `address(bytes20(argLoad(args, offset)))`.
+    function argLoad(bytes memory args, uint256 offset) internal pure returns (bytes32 result) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            result := mload(add(add(args, 0x20), offset))
         }
     }
 }
-
 
 // File solady/src/utils/LibBytes.sol
 
@@ -2824,18 +6351,30 @@ library LibBytes {
         assembly {
             let n := mload(s)
             let packed := or(0xff, shl(8, n))
-            for { let i := 0 } 1 {} {
+            for {
+                let i := 0
+            } 1 {
+
+            } {
                 if iszero(gt(n, 0xfe)) {
                     i := 0x1f
                     packed := or(n, shl(8, mload(add(s, i))))
-                    if iszero(gt(n, i)) { break }
+                    if iszero(gt(n, i)) {
+                        break
+                    }
                 }
                 let o := add(s, 0x20)
                 mstore(0x00, $.slot)
-                for { let p := keccak256(0x00, 0x20) } 1 {} {
+                for {
+                    let p := keccak256(0x00, 0x20)
+                } 1 {
+
+                } {
                     sstore(add(p, shr(5, i)), mload(add(o, i)))
                     i := add(i, 0x20)
-                    if iszero(lt(i, n)) { break }
+                    if iszero(lt(i, n)) {
+                        break
+                    }
                 }
                 break
             }
@@ -2848,17 +6387,29 @@ library LibBytes {
         /// @solidity memory-safe-assembly
         assembly {
             let packed := or(0xff, shl(8, s.length))
-            for { let i := 0 } 1 {} {
+            for {
+                let i := 0
+            } 1 {
+
+            } {
                 if iszero(gt(s.length, 0xfe)) {
                     i := 0x1f
                     packed := or(s.length, shl(8, shr(8, calldataload(s.offset))))
-                    if iszero(gt(s.length, i)) { break }
+                    if iszero(gt(s.length, i)) {
+                        break
+                    }
                 }
                 mstore(0x00, $.slot)
-                for { let p := keccak256(0x00, 0x20) } 1 {} {
+                for {
+                    let p := keccak256(0x00, 0x20)
+                } 1 {
+
+                } {
                     sstore(add(p, shr(5, i)), calldataload(add(s.offset, i)))
                     i := add(i, 0x20)
-                    if iszero(lt(i, s.length)) { break }
+                    if iszero(lt(i, s.length)) {
+                        break
+                    }
                 }
                 break
             }
@@ -2894,18 +6445,30 @@ library LibBytes {
             let o := add(result, 0x20)
             let packed := sload($.slot)
             let n := shr(8, packed)
-            for { let i := 0 } 1 {} {
+            for {
+                let i := 0
+            } 1 {
+
+            } {
                 if iszero(eq(or(packed, 0xff), packed)) {
                     mstore(o, packed)
                     n := and(0xff, packed)
                     i := 0x1f
-                    if iszero(gt(n, i)) { break }
+                    if iszero(gt(n, i)) {
+                        break
+                    }
                 }
                 mstore(0x00, $.slot)
-                for { let p := keccak256(0x00, 0x20) } 1 {} {
+                for {
+                    let p := keccak256(0x00, 0x20)
+                } 1 {
+
+                } {
                     mstore(add(o, i), sload(add(p, shr(5, i))))
                     i := add(i, 0x20)
-                    if iszero(lt(i, n)) { break }
+                    if iszero(lt(i, n)) {
+                        break
+                    }
                 }
                 break
             }
@@ -2920,11 +6483,11 @@ library LibBytes {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /// @dev Returns `subject` all occurrences of `needle` replaced with `replacement`.
-    function replace(bytes memory subject, bytes memory needle, bytes memory replacement)
-        internal
-        pure
-        returns (bytes memory result)
-    {
+    function replace(
+        bytes memory subject,
+        bytes memory needle,
+        bytes memory replacement
+    ) internal pure returns (bytes memory result) {
         /// @solidity memory-safe-assembly
         assembly {
             result := mload(0x40)
@@ -2936,9 +6499,15 @@ library LibBytes {
             if iszero(gt(needleLen, mload(subject))) {
                 let subjectSearchEnd := add(sub(mload(0x00), needleLen), 1)
                 let h := 0 // The hash of `needle`.
-                if iszero(lt(needleLen, 0x20)) { h := keccak256(add(needle, 0x20), needleLen) }
+                if iszero(lt(needleLen, 0x20)) {
+                    h := keccak256(add(needle, 0x20), needleLen)
+                }
                 let s := mload(add(needle, 0x20))
-                for { let m := shl(3, sub(0x20, and(needleLen, 0x1f))) } 1 {} {
+                for {
+                    let m := shl(3, sub(0x20, and(needleLen, 0x1f)))
+                } 1 {
+
+                } {
                     let t := mload(i)
                     // Whether the first `needleLen % 32` bytes of `subject` and `needle` matches.
                     if iszero(shr(m, xor(t, s))) {
@@ -2946,32 +6515,50 @@ library LibBytes {
                             if iszero(eq(keccak256(i, needleLen), h)) {
                                 mstore(add(i, d), t)
                                 i := add(i, 1)
-                                if iszero(lt(i, subjectSearchEnd)) { break }
+                                if iszero(lt(i, subjectSearchEnd)) {
+                                    break
+                                }
                                 continue
                             }
                         }
                         // Copy the `replacement` one word at a time.
-                        for { let j := 0 } 1 {} {
+                        for {
+                            let j := 0
+                        } 1 {
+
+                        } {
                             mstore(add(add(i, d), j), mload(add(add(replacement, 0x20), j)))
                             j := add(j, 0x20)
-                            if iszero(lt(j, replacementLen)) { break }
+                            if iszero(lt(j, replacementLen)) {
+                                break
+                            }
                         }
                         d := sub(add(d, replacementLen), needleLen)
                         if needleLen {
                             i := add(i, needleLen)
-                            if iszero(lt(i, subjectSearchEnd)) { break }
+                            if iszero(lt(i, subjectSearchEnd)) {
+                                break
+                            }
                             continue
                         }
                     }
                     mstore(add(i, d), t)
                     i := add(i, 1)
-                    if iszero(lt(i, subjectSearchEnd)) { break }
+                    if iszero(lt(i, subjectSearchEnd)) {
+                        break
+                    }
                 }
             }
             let end := mload(0x00)
             let n := add(sub(d, add(result, 0x20)), end)
             // Copy the rest of the bytes one word at a time.
-            for {} lt(i, end) { i := add(i, 0x20) } { mstore(add(i, d), mload(i)) }
+            for {
+
+            } lt(i, end) {
+                i := add(i, 0x20)
+            } {
+                mstore(add(i, d), mload(i))
+            }
             let o := add(i, d)
             mstore(o, 0) // Zeroize the slot after the bytes.
             mstore(0x40, add(o, 0x20)) // Allocate memory.
@@ -2982,18 +6569,20 @@ library LibBytes {
     /// @dev Returns the byte index of the first location of `needle` in `subject`,
     /// needleing from left to right, starting from `from`.
     /// Returns `NOT_FOUND` (i.e. `type(uint256).max`) if the `needle` is not found.
-    function indexOf(bytes memory subject, bytes memory needle, uint256 from)
-        internal
-        pure
-        returns (uint256 result)
-    {
+    function indexOf(bytes memory subject, bytes memory needle, uint256 from) internal pure returns (uint256 result) {
         /// @solidity memory-safe-assembly
         assembly {
             result := not(0) // Initialize to `NOT_FOUND`.
-            for { let subjectLen := mload(subject) } 1 {} {
+            for {
+                let subjectLen := mload(subject)
+            } 1 {
+
+            } {
                 if iszero(mload(needle)) {
                     result := from
-                    if iszero(gt(from, subjectLen)) { break }
+                    if iszero(gt(from, subjectLen)) {
+                        break
+                    }
                     result := subjectLen
                     break
                 }
@@ -3005,10 +6594,16 @@ library LibBytes {
                 let m := shl(3, sub(0x20, and(needleLen, 0x1f)))
                 let s := mload(add(needle, 0x20))
 
-                if iszero(and(lt(subject, end), lt(from, subjectLen))) { break }
+                if iszero(and(lt(subject, end), lt(from, subjectLen))) {
+                    break
+                }
 
                 if iszero(lt(needleLen, 0x20)) {
-                    for { let h := keccak256(add(needle, 0x20), needleLen) } 1 {} {
+                    for {
+                        let h := keccak256(add(needle, 0x20), needleLen)
+                    } 1 {
+
+                    } {
                         if iszero(shr(m, xor(mload(subject), s))) {
                             if eq(keccak256(subject, needleLen), h) {
                                 result := sub(subject, subjectStart)
@@ -3016,17 +6611,25 @@ library LibBytes {
                             }
                         }
                         subject := add(subject, 1)
-                        if iszero(lt(subject, end)) { break }
+                        if iszero(lt(subject, end)) {
+                            break
+                        }
                     }
                     break
                 }
-                for {} 1 {} {
+                for {
+
+                } 1 {
+
+                } {
                     if iszero(shr(m, xor(mload(subject), s))) {
                         result := sub(subject, subjectStart)
                         break
                     }
                     subject := add(subject, 1)
-                    if iszero(lt(subject, end)) { break }
+                    if iszero(lt(subject, end)) {
+                        break
+                    }
                 }
                 break
             }
@@ -3043,34 +6646,50 @@ library LibBytes {
     /// @dev Returns the byte index of the first location of `needle` in `subject`,
     /// needleing from right to left, starting from `from`.
     /// Returns `NOT_FOUND` (i.e. `type(uint256).max`) if the `needle` is not found.
-    function lastIndexOf(bytes memory subject, bytes memory needle, uint256 from)
-        internal
-        pure
-        returns (uint256 result)
-    {
+    function lastIndexOf(
+        bytes memory subject,
+        bytes memory needle,
+        uint256 from
+    ) internal pure returns (uint256 result) {
         /// @solidity memory-safe-assembly
         assembly {
-            for {} 1 {} {
+            for {
+
+            } 1 {
+
+            } {
                 result := not(0) // Initialize to `NOT_FOUND`.
                 let needleLen := mload(needle)
-                if gt(needleLen, mload(subject)) { break }
+                if gt(needleLen, mload(subject)) {
+                    break
+                }
                 let w := result
 
                 let fromMax := sub(mload(subject), needleLen)
-                if iszero(gt(fromMax, from)) { from := fromMax }
+                if iszero(gt(fromMax, from)) {
+                    from := fromMax
+                }
 
                 let end := add(add(subject, 0x20), w)
                 subject := add(add(subject, 0x20), from)
-                if iszero(gt(subject, end)) { break }
+                if iszero(gt(subject, end)) {
+                    break
+                }
                 // As this function is not too often used,
                 // we shall simply use keccak256 for smaller bytecode size.
-                for { let h := keccak256(add(needle, 0x20), needleLen) } 1 {} {
+                for {
+                    let h := keccak256(add(needle, 0x20), needleLen)
+                } 1 {
+
+                } {
                     if eq(keccak256(subject, needleLen), h) {
                         result := sub(subject, add(end, 1))
                         break
                     }
                     subject := add(subject, w) // `sub(subject, 1)`.
-                    if iszero(gt(subject, end)) { break }
+                    if iszero(gt(subject, end)) {
+                        break
+                    }
                 }
                 break
             }
@@ -3080,11 +6699,7 @@ library LibBytes {
     /// @dev Returns the byte index of the first location of `needle` in `subject`,
     /// needleing from right to left.
     /// Returns `NOT_FOUND` (i.e. `type(uint256).max`) if the `needle` is not found.
-    function lastIndexOf(bytes memory subject, bytes memory needle)
-        internal
-        pure
-        returns (uint256)
-    {
+    function lastIndexOf(bytes memory subject, bytes memory needle) internal pure returns (uint256) {
         return lastIndexOf(subject, needle, type(uint256).max);
     }
 
@@ -3094,11 +6709,7 @@ library LibBytes {
     }
 
     /// @dev Returns whether `subject` starts with `needle`.
-    function startsWith(bytes memory subject, bytes memory needle)
-        internal
-        pure
-        returns (bool result)
-    {
+    function startsWith(bytes memory subject, bytes memory needle) internal pure returns (bool result) {
         /// @solidity memory-safe-assembly
         assembly {
             let n := mload(needle)
@@ -3109,11 +6720,7 @@ library LibBytes {
     }
 
     /// @dev Returns whether `subject` ends with `needle`.
-    function endsWith(bytes memory subject, bytes memory needle)
-        internal
-        pure
-        returns (bool result)
-    {
+    function endsWith(bytes memory subject, bytes memory needle) internal pure returns (bool result) {
         /// @solidity memory-safe-assembly
         assembly {
             let n := mload(needle)
@@ -3126,11 +6733,7 @@ library LibBytes {
     }
 
     /// @dev Returns `subject` repeated `times`.
-    function repeat(bytes memory subject, uint256 times)
-        internal
-        pure
-        returns (bytes memory result)
-    {
+    function repeat(bytes memory subject, uint256 times) internal pure returns (bytes memory result) {
         /// @solidity memory-safe-assembly
         assembly {
             let l := mload(subject) // Subject length.
@@ -3138,16 +6741,28 @@ library LibBytes {
                 result := mload(0x40)
                 subject := add(subject, 0x20)
                 let o := add(result, 0x20)
-                for {} 1 {} {
+                for {
+
+                } 1 {
+
+                } {
                     // Copy the `subject` one word at a time.
-                    for { let j := 0 } 1 {} {
+                    for {
+                        let j := 0
+                    } 1 {
+
+                    } {
                         mstore(add(o, j), mload(add(subject, j)))
                         j := add(j, 0x20)
-                        if iszero(lt(j, l)) { break }
+                        if iszero(lt(j, l)) {
+                            break
+                        }
                     }
                     o := add(o, l)
                     times := sub(times, 1)
-                    if iszero(times) { break }
+                    if iszero(times) {
+                        break
+                    }
                 }
                 mstore(o, 0) // Zeroize the slot after the bytes.
                 mstore(0x40, add(o, 0x20)) // Allocate memory.
@@ -3158,26 +6773,32 @@ library LibBytes {
 
     /// @dev Returns a copy of `subject` sliced from `start` to `end` (exclusive).
     /// `start` and `end` are byte offsets.
-    function slice(bytes memory subject, uint256 start, uint256 end)
-        internal
-        pure
-        returns (bytes memory result)
-    {
+    function slice(bytes memory subject, uint256 start, uint256 end) internal pure returns (bytes memory result) {
         /// @solidity memory-safe-assembly
         assembly {
             let l := mload(subject) // Subject length.
-            if iszero(gt(l, end)) { end := l }
-            if iszero(gt(l, start)) { start := l }
+            if iszero(gt(l, end)) {
+                end := l
+            }
+            if iszero(gt(l, start)) {
+                start := l
+            }
             if lt(start, end) {
                 result := mload(0x40)
                 let n := sub(end, start)
                 let i := add(subject, start)
                 let w := not(0x1f)
                 // Copy the `subject` one word at a time, backwards.
-                for { let j := and(add(n, 0x1f), w) } 1 {} {
+                for {
+                    let j := and(add(n, 0x1f), w)
+                } 1 {
+
+                } {
                     mstore(add(result, j), mload(add(i, j)))
                     j := add(j, w) // `sub(j, 0x20)`.
-                    if iszero(j) { break }
+                    if iszero(j) {
+                        break
+                    }
                 }
                 let o := add(add(result, 0x20), n)
                 mstore(o, 0) // Zeroize the slot after the bytes.
@@ -3189,21 +6810,17 @@ library LibBytes {
 
     /// @dev Returns a copy of `subject` sliced from `start` to the end of the bytes.
     /// `start` is a byte offset.
-    function slice(bytes memory subject, uint256 start)
-        internal
-        pure
-        returns (bytes memory result)
-    {
+    function slice(bytes memory subject, uint256 start) internal pure returns (bytes memory result) {
         result = slice(subject, start, type(uint256).max);
     }
 
     /// @dev Returns a copy of `subject` sliced from `start` to `end` (exclusive).
     /// `start` and `end` are byte offsets. Faster than Solidity's native slicing.
-    function sliceCalldata(bytes calldata subject, uint256 start, uint256 end)
-        internal
-        pure
-        returns (bytes calldata result)
-    {
+    function sliceCalldata(
+        bytes calldata subject,
+        uint256 start,
+        uint256 end
+    ) internal pure returns (bytes calldata result) {
         /// @solidity memory-safe-assembly
         assembly {
             end := xor(end, mul(xor(end, subject.length), lt(subject.length, end)))
@@ -3215,11 +6832,7 @@ library LibBytes {
 
     /// @dev Returns a copy of `subject` sliced from `start` to the end of the bytes.
     /// `start` is a byte offset. Faster than Solidity's native slicing.
-    function sliceCalldata(bytes calldata subject, uint256 start)
-        internal
-        pure
-        returns (bytes calldata result)
-    {
+    function sliceCalldata(bytes calldata subject, uint256 start) internal pure returns (bytes calldata result) {
         /// @solidity memory-safe-assembly
         assembly {
             start := xor(start, mul(xor(start, subject.length), lt(subject.length, start)))
@@ -3230,11 +6843,7 @@ library LibBytes {
 
     /// @dev Reduces the size of `subject` to `n`.
     /// If `n` is greater than the size of `subject`, this will be a no-op.
-    function truncate(bytes memory subject, uint256 n)
-        internal
-        pure
-        returns (bytes memory result)
-    {
+    function truncate(bytes memory subject, uint256 n) internal pure returns (bytes memory result) {
         /// @solidity memory-safe-assembly
         assembly {
             result := subject
@@ -3244,11 +6853,7 @@ library LibBytes {
 
     /// @dev Returns a copy of `subject`, with the length reduced to `n`.
     /// If `n` is greater than the size of `subject`, this will be a no-op.
-    function truncatedCalldata(bytes calldata subject, uint256 n)
-        internal
-        pure
-        returns (bytes calldata result)
-    {
+    function truncatedCalldata(bytes calldata subject, uint256 n) internal pure returns (bytes calldata result) {
         /// @solidity memory-safe-assembly
         assembly {
             result.offset := subject.offset
@@ -3258,11 +6863,7 @@ library LibBytes {
 
     /// @dev Returns all the indices of `needle` in `subject`.
     /// The indices are byte offsets.
-    function indicesOf(bytes memory subject, bytes memory needle)
-        internal
-        pure
-        returns (uint256[] memory result)
-    {
+    function indicesOf(bytes memory subject, bytes memory needle) internal pure returns (uint256[] memory result) {
         /// @solidity memory-safe-assembly
         assembly {
             let searchLen := mload(needle)
@@ -3272,16 +6873,24 @@ library LibBytes {
                 let o := add(result, 0x20)
                 let subjectSearchEnd := add(sub(add(i, mload(subject)), searchLen), 1)
                 let h := 0 // The hash of `needle`.
-                if iszero(lt(searchLen, 0x20)) { h := keccak256(add(needle, 0x20), searchLen) }
+                if iszero(lt(searchLen, 0x20)) {
+                    h := keccak256(add(needle, 0x20), searchLen)
+                }
                 let s := mload(add(needle, 0x20))
-                for { let m := shl(3, sub(0x20, and(searchLen, 0x1f))) } 1 {} {
+                for {
+                    let m := shl(3, sub(0x20, and(searchLen, 0x1f)))
+                } 1 {
+
+                } {
                     let t := mload(i)
                     // Whether the first `searchLen % 32` bytes of `subject` and `needle` matches.
                     if iszero(shr(m, xor(t, s))) {
                         if h {
                             if iszero(eq(keccak256(i, searchLen), h)) {
                                 i := add(i, 1)
-                                if iszero(lt(i, subjectSearchEnd)) { break }
+                                if iszero(lt(i, subjectSearchEnd)) {
+                                    break
+                                }
                                 continue
                             }
                         }
@@ -3289,12 +6898,16 @@ library LibBytes {
                         o := add(o, 0x20)
                         i := add(i, searchLen) // Advance `i` by `searchLen`.
                         if searchLen {
-                            if iszero(lt(i, subjectSearchEnd)) { break }
+                            if iszero(lt(i, subjectSearchEnd)) {
+                                break
+                            }
                             continue
                         }
                     }
                     i := add(i, 1)
-                    if iszero(lt(i, subjectSearchEnd)) { break }
+                    if iszero(lt(i, subjectSearchEnd)) {
+                        break
+                    }
                 }
                 mstore(result, shr(5, sub(o, add(result, 0x20)))) // Store the length of `result`.
                 // Allocate memory for result.
@@ -3305,11 +6918,7 @@ library LibBytes {
     }
 
     /// @dev Returns an arrays of bytess based on the `delimiter` inside of the `subject` bytes.
-    function split(bytes memory subject, bytes memory delimiter)
-        internal
-        pure
-        returns (bytes[] memory result)
-    {
+    function split(bytes memory subject, bytes memory delimiter) internal pure returns (bytes[] memory result) {
         uint256[] memory indices = indicesOf(subject, delimiter);
         /// @solidity memory-safe-assembly
         assembly {
@@ -3318,7 +6927,11 @@ library LibBytes {
             let indicesEnd := add(indexPtr, shl(5, add(mload(indices), 1)))
             mstore(add(indicesEnd, w), mload(subject))
             mstore(indices, add(mload(indices), 1))
-            for { let prevIndex := 0 } 1 {} {
+            for {
+                let prevIndex := 0
+            } 1 {
+
+            } {
                 let index := mload(indexPtr)
                 mstore(indexPtr, 0x60)
                 if iszero(eq(index, prevIndex)) {
@@ -3326,10 +6939,16 @@ library LibBytes {
                     let l := sub(index, prevIndex)
                     mstore(element, l) // Store the length of the element.
                     // Copy the `subject` one word at a time, backwards.
-                    for { let o := and(add(l, 0x1f), w) } 1 {} {
+                    for {
+                        let o := and(add(l, 0x1f), w)
+                    } 1 {
+
+                    } {
                         mstore(add(element, o), mload(add(add(subject, prevIndex), o)))
                         o := add(o, w) // `sub(o, 0x20)`.
-                        if iszero(o) { break }
+                        if iszero(o) {
+                            break
+                        }
                     }
                     mstore(add(add(element, 0x20), l), 0) // Zeroize the slot after the bytes.
                     // Allocate memory for the length and the bytes, rounded up to a multiple of 32.
@@ -3338,7 +6957,9 @@ library LibBytes {
                 }
                 prevIndex := add(index, mload(delimiter))
                 indexPtr := add(indexPtr, 0x20)
-                if iszero(lt(indexPtr, indicesEnd)) { break }
+                if iszero(lt(indexPtr, indicesEnd)) {
+                    break
+                }
             }
             result := indices
             if iszero(mload(delimiter)) {
@@ -3357,18 +6978,30 @@ library LibBytes {
             let w := not(0x1f)
             let aLen := mload(a)
             // Copy `a` one word at a time, backwards.
-            for { let o := and(add(aLen, 0x20), w) } 1 {} {
+            for {
+                let o := and(add(aLen, 0x20), w)
+            } 1 {
+
+            } {
                 mstore(add(result, o), mload(add(a, o)))
                 o := add(o, w) // `sub(o, 0x20)`.
-                if iszero(o) { break }
+                if iszero(o) {
+                    break
+                }
             }
             let bLen := mload(b)
             let output := add(result, aLen)
             // Copy `b` one word at a time, backwards.
-            for { let o := and(add(bLen, 0x20), w) } 1 {} {
+            for {
+                let o := and(add(bLen, 0x20), w)
+            } 1 {
+
+            } {
                 mstore(add(output, o), mload(add(b, o)))
                 o := add(o, w) // `sub(o, 0x20)`.
-                if iszero(o) { break }
+                if iszero(o) {
+                    break
+                }
             }
             let totalLen := add(aLen, bLen)
             let last := add(add(result, 0x20), totalLen)
@@ -3399,8 +7032,10 @@ library LibBytes {
             r := or(r, shl(4, lt(0xffff, shr(r, x))))
             r := or(r, shl(3, lt(0xff, shr(r, x))))
             // forgefmt: disable-next-item
-            result := gt(eq(mload(a), add(iszero(x), xor(31, shr(3, r)))),
-                xor(shr(add(8, r), b), shr(add(8, r), mload(add(a, 0x20)))))
+            result := gt(
+                eq(mload(a), add(iszero(x), xor(31, shr(3, r)))),
+                xor(shr(add(8, r), b), shr(add(8, r), mload(add(a, 0x20))))
+            )
         }
     }
 
@@ -3413,7 +7048,11 @@ library LibBytes {
             let bLen := mload(b)
             let n := and(xor(aLen, mul(xor(aLen, bLen), lt(bLen, aLen))), not(0x1f))
             if n {
-                for { let i := 0x20 } 1 {} {
+                for {
+                    let i := 0x20
+                } 1 {
+
+                } {
                     let x := mload(add(a, i))
                     let y := mload(add(b, i))
                     if iszero(or(xor(x, y), eq(i, n))) {
@@ -3430,7 +7069,9 @@ library LibBytes {
                 let x := and(mload(add(add(a, 0x20), n)), shl(shl(3, byte(sub(aLen, n), l)), not(0)))
                 let y := and(mload(add(add(b, 0x20), n)), shl(shl(3, byte(sub(bLen, n), l)), not(0)))
                 result := sub(gt(x, y), lt(x, y))
-                if iszero(result) { result := sub(gt(aLen, bLen), lt(aLen, bLen)) }
+                if iszero(result) {
+                    result := sub(gt(aLen, bLen), lt(aLen, bLen))
+                }
             }
         }
     }
@@ -3459,7 +7100,11 @@ library LibBytes {
             let o := add(a, 0x20) // Start of elements in `a`.
             let u := a // Highest memory slot.
             let w := not(0x1f)
-            for { let i := 0 } iszero(eq(i, n)) { i := add(i, 1) } {
+            for {
+                let i := 0
+            } iszero(eq(i, n)) {
+                i := add(i, 1)
+            } {
                 let c := add(o, shl(5, i)) // Location of pointer to `a[i]`.
                 let s := mload(c) // `a[i]`.
                 let l := mload(s) // `a[i].length`.
@@ -3469,10 +7114,16 @@ library LibBytes {
                 if iszero(lt(lt(s, o), or(iszero(r), iszero(shl(shl(3, r), mload(add(s, z))))))) {
                     let m := mload(0x40)
                     mstore(m, l) // Copy `a[i].length`.
-                    for {} 1 {} {
+                    for {
+
+                    } 1 {
+
+                    } {
                         mstore(add(m, z), mload(add(s, z))) // Copy `a[i]`, backwards.
                         z := add(z, w) // `sub(z, 0x20)`.
-                        if iszero(z) { break }
+                        if iszero(z) {
+                            break
+                        }
                     }
                     let e := add(add(m, 0x20), l)
                     mstore(e, 0) // Zeroize the slot after the copied bytes.
@@ -3481,7 +7132,9 @@ library LibBytes {
                 }
                 mstore(c, sub(s, o)) // Convert to calldata offset.
                 let t := add(l, add(s, 0x20))
-                if iszero(lt(t, u)) { u := t }
+                if iszero(lt(t, u)) {
+                    u := t
+                }
             }
             let retStart := add(a, w) // Assumes `a` doesn't start from scratch space.
             mstore(retStart, 0x20) // Store the return offset.
@@ -3498,11 +7151,7 @@ library LibBytes {
     }
 
     /// @dev Returns the word at `offset`, without any bounds checks.
-    function loadCalldata(bytes calldata a, uint256 offset)
-        internal
-        pure
-        returns (bytes32 result)
-    {
+    function loadCalldata(bytes calldata a, uint256 offset) internal pure returns (bytes32 result) {
         /// @solidity memory-safe-assembly
         assembly {
             result := calldataload(add(a.offset, offset))
@@ -3510,42 +7159,34 @@ library LibBytes {
     }
 
     /// @dev Returns a slice representing a static struct in the calldata. Performs bounds checks.
-    function staticStructInCalldata(bytes calldata a, uint256 offset)
-        internal
-        pure
-        returns (bytes calldata result)
-    {
+    function staticStructInCalldata(bytes calldata a, uint256 offset) internal pure returns (bytes calldata result) {
         /// @solidity memory-safe-assembly
         assembly {
             let l := sub(a.length, 0x20)
             result.offset := add(a.offset, offset)
             result.length := sub(a.length, offset)
-            if or(shr(64, or(l, a.offset)), gt(offset, l)) { revert(l, 0x00) }
+            if or(shr(64, or(l, a.offset)), gt(offset, l)) {
+                revert(l, 0x00)
+            }
         }
     }
 
     /// @dev Returns a slice representing a dynamic struct in the calldata. Performs bounds checks.
-    function dynamicStructInCalldata(bytes calldata a, uint256 offset)
-        internal
-        pure
-        returns (bytes calldata result)
-    {
+    function dynamicStructInCalldata(bytes calldata a, uint256 offset) internal pure returns (bytes calldata result) {
         /// @solidity memory-safe-assembly
         assembly {
             let l := sub(a.length, 0x20)
             let s := calldataload(add(a.offset, offset)) // Relative offset of `result` from `a.offset`.
             result.offset := add(a.offset, s)
             result.length := sub(a.length, s)
-            if or(shr(64, or(s, or(l, a.offset))), gt(offset, l)) { revert(l, 0x00) }
+            if or(shr(64, or(s, or(l, a.offset))), gt(offset, l)) {
+                revert(l, 0x00)
+            }
         }
     }
 
     /// @dev Returns bytes in calldata. Performs bounds checks.
-    function bytesInCalldata(bytes calldata a, uint256 offset)
-        internal
-        pure
-        returns (bytes calldata result)
-    {
+    function bytesInCalldata(bytes calldata a, uint256 offset) internal pure returns (bytes calldata result) {
         /// @solidity memory-safe-assembly
         assembly {
             let l := sub(a.length, 0x20)
@@ -3553,8 +7194,9 @@ library LibBytes {
             result.offset := add(add(a.offset, s), 0x20)
             result.length := calldataload(add(a.offset, s))
             // forgefmt: disable-next-item
-            if or(shr(64, or(result.length, or(s, or(l, a.offset)))),
-                or(gt(add(s, result.length), l), gt(offset, l))) { revert(l, 0x00) }
+            if or(shr(64, or(result.length, or(s, or(l, a.offset)))), or(gt(add(s, result.length), l), gt(offset, l))) {
+                revert(l, 0x00)
+            }
         }
     }
 
@@ -3566,7 +7208,6 @@ library LibBytes {
         }
     }
 }
-
 
 // File solady/src/utils/LibString.sol
 
@@ -3679,11 +7320,7 @@ library LibString {
     }
 
     /// @dev Helper to cast `$` to a `BytesStorage`.
-    function bytesStorage(StringStorage storage $)
-        internal
-        pure
-        returns (LibBytes.BytesStorage storage casted)
-    {
+    function bytesStorage(StringStorage storage $) internal pure returns (LibBytes.BytesStorage storage casted) {
         /// @solidity memory-safe-assembly
         assembly {
             casted.slot := $.slot
@@ -3710,13 +7347,19 @@ library LibString {
             let w := not(0) // Tsk.
             // We write the string from rightmost digit to leftmost digit.
             // The following is essentially a do-while loop that also handles the zero case.
-            for { let temp := value } 1 {} {
+            for {
+                let temp := value
+            } 1 {
+
+            } {
                 result := add(result, w) // `sub(result, 1)`.
                 // Store the character to the pointer.
                 // The ASCII index of the '0' character is 48.
                 mstore8(result, add(48, mod(temp, 10)))
                 temp := div(temp, 10) // Keep dividing `temp` until zero.
-                if iszero(temp) { break }
+                if iszero(temp) {
+                    break
+                }
             }
             let n := sub(end, result)
             result := sub(result, 0x20) // Move the pointer 32 bytes back to make room for the length.
@@ -3750,11 +7393,7 @@ library LibString {
     /// The output is prefixed with "0x" encoded using 2 hexadecimal digits per byte,
     /// giving a total length of `byteCount * 2 + 2` bytes.
     /// Reverts if `byteCount` is too small for the output to contain all the digits.
-    function toHexString(uint256 value, uint256 byteCount)
-        internal
-        pure
-        returns (string memory result)
-    {
+    function toHexString(uint256 value, uint256 byteCount) internal pure returns (string memory result) {
         result = toHexStringNoPrefix(value, byteCount);
         /// @solidity memory-safe-assembly
         assembly {
@@ -3770,11 +7409,7 @@ library LibString {
     /// The output is not prefixed with "0x" and is encoded using 2 hexadecimal digits per byte,
     /// giving a total length of `byteCount * 2` bytes.
     /// Reverts if `byteCount` is too small for the output to contain all the digits.
-    function toHexStringNoPrefix(uint256 value, uint256 byteCount)
-        internal
-        pure
-        returns (string memory result)
-    {
+    function toHexStringNoPrefix(uint256 value, uint256 byteCount) internal pure returns (string memory result) {
         /// @solidity memory-safe-assembly
         assembly {
             // We need 0x20 bytes for the trailing zeros padding, `byteCount * 2` bytes
@@ -3794,12 +7429,18 @@ library LibString {
             let temp := value
             // We write the string from rightmost digit to leftmost digit.
             // The following is essentially a do-while loop that also handles the zero case.
-            for {} 1 {} {
+            for {
+
+            } 1 {
+
+            } {
                 result := add(result, w) // `sub(result, 2)`.
                 mstore8(add(result, 1), mload(and(temp, 15)))
                 mstore8(result, mload(and(shr(4, temp), 15)))
                 temp := shr(8, temp)
-                if iszero(xor(result, start)) { break }
+                if iszero(xor(result, start)) {
+                    break
+                }
             }
             if temp {
                 mstore(0x00, 0x2194895a) // `HexLengthInsufficient()`.
@@ -3845,11 +7486,7 @@ library LibString {
     /// @dev Returns the hexadecimal representation of `value`.
     /// The output excludes leading "0" from the `toHexStringNoPrefix` output.
     /// `0x00: "0", 0x01: "1", 0x12: "12", 0x123: "123"`.
-    function toMinimalHexStringNoPrefix(uint256 value)
-        internal
-        pure
-        returns (string memory result)
-    {
+    function toMinimalHexStringNoPrefix(uint256 value) internal pure returns (string memory result) {
         result = toHexStringNoPrefix(value);
         /// @solidity memory-safe-assembly
         assembly {
@@ -3880,12 +7517,18 @@ library LibString {
             let w := not(1) // Tsk.
             // We write the string from rightmost digit to leftmost digit.
             // The following is essentially a do-while loop that also handles the zero case.
-            for { let temp := value } 1 {} {
+            for {
+                let temp := value
+            } 1 {
+
+            } {
                 result := add(result, w) // `sub(result, 2)`.
                 mstore8(add(result, 1), mload(and(temp, 15)))
                 mstore8(result, mload(and(shr(4, temp), 15)))
                 temp := shr(8, temp)
-                if iszero(temp) { break }
+                if iszero(temp) {
+                    break
+                }
             }
             let n := sub(end, result)
             result := sub(result, 0x20)
@@ -3905,10 +7548,16 @@ library LibString {
             let o := add(result, 0x22)
             let hashed := and(keccak256(o, 40), mul(34, mask)) // `0b10001000 ... `
             let t := shl(240, 136) // `0b10001000 << 240`
-            for { let i := 0 } 1 {} {
+            for {
+                let i := 0
+            } 1 {
+
+            } {
                 mstore(add(i, i), mul(t, byte(i, hashed)))
                 i := add(i, 1)
-                if eq(i, 20) { break }
+                if eq(i, 20) {
+                    break
+                }
             }
             mstore(o, xor(mload(o), shr(1, and(mload(0x00), and(mload(o), mask)))))
             o := add(o, 0x20)
@@ -3949,13 +7598,19 @@ library LibString {
             value := shl(96, value)
             // We write the string from rightmost digit to leftmost digit.
             // The following is essentially a do-while loop that also handles the zero case.
-            for { let i := 0 } 1 {} {
+            for {
+                let i := 0
+            } 1 {
+
+            } {
                 let p := add(o, add(i, i))
                 let temp := byte(i, value)
                 mstore8(add(p, 1), mload(and(temp, 15)))
                 mstore8(p, mload(shr(4, temp)))
                 i := add(i, 1)
-                if eq(i, 20) { break }
+                if eq(i, 20) {
+                    break
+                }
             }
         }
     }
@@ -3985,7 +7640,11 @@ library LibString {
             mstore(0x0f, 0x30313233343536373839616263646566) // Store the "0123456789abcdef" lookup.
             let o := add(result, 0x20)
             let end := add(raw, n)
-            for {} iszero(eq(raw, end)) {} {
+            for {
+
+            } iszero(eq(raw, end)) {
+
+            } {
                 raw := add(raw, 1)
                 mstore8(add(o, 1), mload(and(mload(raw), 15)))
                 mstore8(o, mload(and(shr(4, mload(raw)), 15)))
@@ -4009,9 +7668,15 @@ library LibString {
                 mstore(0x20, 0x0202020202020202020202020202020202020202020202020303030304040506)
                 let o := add(s, 0x20)
                 let end := add(o, mload(s))
-                for { result := 1 } 1 { result := add(result, 1) } {
+                for {
+                    result := 1
+                } 1 {
+                    result := add(result, 1)
+                } {
                     o := add(o, byte(0, mload(shr(250, mload(o)))))
-                    if iszero(lt(o, end)) { break }
+                    if iszero(lt(o, end)) {
+                        break
+                    }
                 }
             }
         }
@@ -4030,13 +7695,19 @@ library LibString {
                 let end := add(o, n)
                 let last := mload(end)
                 mstore(end, 0)
-                for {} 1 {} {
+                for {
+
+                } 1 {
+
+                } {
                     if and(mask, mload(o)) {
                         result := 0
                         break
                     }
                     o := add(o, 0x20)
-                    if iszero(lt(o, end)) { break }
+                    if iszero(lt(o, end)) {
+                        break
+                    }
                 }
                 mstore(end, last)
             }
@@ -4053,10 +7724,16 @@ library LibString {
             if mload(s) {
                 let allowed_ := shr(128, shl(128, allowed))
                 let o := add(s, 0x20)
-                for { let end := add(o, mload(s)) } 1 {} {
+                for {
+                    let end := add(o, mload(s))
+                } 1 {
+
+                } {
                     result := and(result, shr(byte(0, mload(o)), allowed_))
                     o := add(o, 1)
-                    if iszero(and(result, lt(o, end))) { break }
+                    if iszero(and(result, lt(o, end))) {
+                        break
+                    }
                 }
             }
         }
@@ -4070,10 +7747,16 @@ library LibString {
         assembly {
             if mload(s) {
                 let o := add(s, 0x20)
-                for { let end := add(o, mload(s)) } 1 {} {
+                for {
+                    let end := add(o, mload(s))
+                } 1 {
+
+                } {
                     result := or(result, shl(byte(0, mload(o)), 1))
                     o := add(o, 1)
-                    if iszero(lt(o, end)) { break }
+                    if iszero(lt(o, end)) {
+                        break
+                    }
                 }
                 if shr(128, result) {
                     mstore(0x00, 0xc9807e0d) // `StringNot7BitASCII()`.
@@ -4093,22 +7776,18 @@ library LibString {
     // can lead to undefined behavior.
 
     /// @dev Returns `subject` all occurrences of `needle` replaced with `replacement`.
-    function replace(string memory subject, string memory needle, string memory replacement)
-        internal
-        pure
-        returns (string memory)
-    {
+    function replace(
+        string memory subject,
+        string memory needle,
+        string memory replacement
+    ) internal pure returns (string memory) {
         return string(LibBytes.replace(bytes(subject), bytes(needle), bytes(replacement)));
     }
 
     /// @dev Returns the byte index of the first location of `needle` in `subject`,
     /// needleing from left to right, starting from `from`.
     /// Returns `NOT_FOUND` (i.e. `type(uint256).max`) if the `needle` is not found.
-    function indexOf(string memory subject, string memory needle, uint256 from)
-        internal
-        pure
-        returns (uint256)
-    {
+    function indexOf(string memory subject, string memory needle, uint256 from) internal pure returns (uint256) {
         return LibBytes.indexOf(bytes(subject), bytes(needle), from);
     }
 
@@ -4122,22 +7801,14 @@ library LibString {
     /// @dev Returns the byte index of the first location of `needle` in `subject`,
     /// needleing from right to left, starting from `from`.
     /// Returns `NOT_FOUND` (i.e. `type(uint256).max`) if the `needle` is not found.
-    function lastIndexOf(string memory subject, string memory needle, uint256 from)
-        internal
-        pure
-        returns (uint256)
-    {
+    function lastIndexOf(string memory subject, string memory needle, uint256 from) internal pure returns (uint256) {
         return LibBytes.lastIndexOf(bytes(subject), bytes(needle), from);
     }
 
     /// @dev Returns the byte index of the first location of `needle` in `subject`,
     /// needleing from right to left.
     /// Returns `NOT_FOUND` (i.e. `type(uint256).max`) if the `needle` is not found.
-    function lastIndexOf(string memory subject, string memory needle)
-        internal
-        pure
-        returns (uint256)
-    {
+    function lastIndexOf(string memory subject, string memory needle) internal pure returns (uint256) {
         return LibBytes.lastIndexOf(bytes(subject), bytes(needle), type(uint256).max);
     }
 
@@ -4163,11 +7834,7 @@ library LibString {
 
     /// @dev Returns a copy of `subject` sliced from `start` to `end` (exclusive).
     /// `start` and `end` are byte offsets.
-    function slice(string memory subject, uint256 start, uint256 end)
-        internal
-        pure
-        returns (string memory)
-    {
+    function slice(string memory subject, uint256 start, uint256 end) internal pure returns (string memory) {
         return string(LibBytes.slice(bytes(subject), start, end));
     }
 
@@ -4179,20 +7846,12 @@ library LibString {
 
     /// @dev Returns all the indices of `needle` in `subject`.
     /// The indices are byte offsets.
-    function indicesOf(string memory subject, string memory needle)
-        internal
-        pure
-        returns (uint256[] memory)
-    {
+    function indicesOf(string memory subject, string memory needle) internal pure returns (uint256[] memory) {
         return LibBytes.indicesOf(bytes(subject), bytes(needle));
     }
 
     /// @dev Returns an arrays of strings based on the `delimiter` inside of the `subject` string.
-    function split(string memory subject, string memory delimiter)
-        internal
-        pure
-        returns (string[] memory result)
-    {
+    function split(string memory subject, string memory delimiter) internal pure returns (string[] memory result) {
         bytes[] memory a = LibBytes.split(bytes(subject), bytes(delimiter));
         /// @solidity memory-safe-assembly
         assembly {
@@ -4208,11 +7867,7 @@ library LibString {
 
     /// @dev Returns a copy of the string in either lowercase or UPPERCASE.
     /// WARNING! This function is only compatible with 7-bit ASCII strings.
-    function toCase(string memory subject, bool toUpper)
-        internal
-        pure
-        returns (string memory result)
-    {
+    function toCase(string memory subject, bool toUpper) internal pure returns (string memory result) {
         /// @solidity memory-safe-assembly
         assembly {
             let n := mload(subject)
@@ -4221,11 +7876,17 @@ library LibString {
                 let o := add(result, 0x20)
                 let d := sub(subject, result)
                 let flags := shl(add(70, shl(5, toUpper)), 0x3ffffff)
-                for { let end := add(o, n) } 1 {} {
+                for {
+                    let end := add(o, n)
+                } 1 {
+
+                } {
                     let b := byte(0, mload(add(d, o)))
                     mstore8(o, xor(and(shr(b, flags), 0x20), b))
                     o := add(o, 1)
-                    if eq(o, end) { break }
+                    if eq(o, end) {
+                        break
+                    }
                 }
                 mstore(result, n) // Store the length.
                 mstore(o, 0) // Zeroize the slot after the string.
@@ -4241,7 +7902,13 @@ library LibString {
         assembly {
             result := mload(0x40)
             let n := 0
-            for {} byte(n, s) { n := add(n, 1) } {} // Scan for '\0'.
+            for {
+
+            } byte(n, s) {
+                n := add(n, 1)
+            } {
+
+            } // Scan for '\0'.
             mstore(result, n) // Store the length.
             let o := add(result, 0x20)
             mstore(o, s) // Store the bytes of the string.
@@ -4254,7 +7921,13 @@ library LibString {
     function normalizeSmallString(bytes32 s) internal pure returns (bytes32 result) {
         /// @solidity memory-safe-assembly
         assembly {
-            for {} byte(result, s) { result := add(result, 1) } {} // Scan for '\0'.
+            for {
+
+            } byte(result, s) {
+                result := add(result, 1)
+            } {
+
+            } // Scan for '\0'.
             mstore(0x00, s)
             mstore(result, 0x00)
             result := mload(0x00)
@@ -4299,7 +7972,11 @@ library LibString {
             mstore(0x08, 0xc0000000a6ab)
             // Store "&quot;&amp;&#39;&lt;&gt;" into the scratch space.
             mstore(0x00, shl(64, 0x2671756f743b26616d703b262333393b266c743b2667743b))
-            for {} iszero(eq(s, end)) {} {
+            for {
+
+            } iszero(eq(s, end)) {
+
+            } {
                 s := add(s, 1)
                 let c := and(mload(s), 0xff)
                 // Not in `["\"","'","&","<",">"]`.
@@ -4320,11 +7997,7 @@ library LibString {
 
     /// @dev Escapes the string to be used within double-quotes in a JSON.
     /// If `addDoubleQuotes` is true, the result will be enclosed in double-quotes.
-    function escapeJSON(string memory s, bool addDoubleQuotes)
-        internal
-        pure
-        returns (string memory result)
-    {
+    function escapeJSON(string memory s, bool addDoubleQuotes) internal pure returns (string memory result) {
         /// @solidity memory-safe-assembly
         assembly {
             result := mload(0x40)
@@ -4340,7 +8013,11 @@ library LibString {
             mstore(0x15, 0x5c75303030303031323334353637383961626364656662746e006672)
             // Bitmask for detecting `["\"","\\"]`.
             let e := or(shl(0x22, 1), shl(0x5c, 1))
-            for { let end := add(s, mload(s)) } iszero(eq(s, end)) {} {
+            for {
+                let end := add(s, mload(s))
+            } iszero(eq(s, end)) {
+
+            } {
                 s := add(s, 1)
                 let c := and(mload(s), 0xff)
                 if iszero(lt(c, 0x20)) {
@@ -4395,7 +8072,11 @@ library LibString {
             // Uppercased to be consistent with JavaScript's implementation.
             mstore(0x0f, 0x30313233343536373839414243444546)
             let o := add(result, 0x20)
-            for { let end := add(s, mload(s)) } iszero(eq(s, end)) {} {
+            for {
+                let end := add(s, mload(s))
+            } iszero(eq(s, end)) {
+
+            } {
                 s := add(s, 1)
                 let c := and(mload(s), 0xff)
                 // If not in `[0-9A-Z-a-z-_.!~*'()]`.
@@ -4436,8 +8117,10 @@ library LibString {
             r := or(r, shl(4, lt(0xffff, shr(r, x))))
             r := or(r, shl(3, lt(0xff, shr(r, x))))
             // forgefmt: disable-next-item
-            result := gt(eq(mload(a), add(iszero(x), xor(31, shr(3, r)))),
-                xor(shr(add(8, r), b), shr(add(8, r), mload(add(a, 0x20)))))
+            result := gt(
+                eq(mload(a), add(iszero(x), xor(31, shr(3, r)))),
+                xor(shr(add(8, r), b), shr(add(8, r), mload(add(a, 0x20))))
+            )
         }
     }
 
@@ -4454,14 +8137,13 @@ library LibString {
         assembly {
             // We don't need to zero right pad the string,
             // since this is our own custom non-standard packing scheme.
-            result :=
-                mul(
-                    // Load the length and the bytes.
-                    mload(add(a, 0x1f)),
-                    // `length != 0 && length < 32`. Abuses underflow.
-                    // Assumes that the length is valid and within the block gas limit.
-                    lt(sub(mload(a), 1), 0x1f)
-                )
+            result := mul(
+                // Load the length and the bytes.
+                mload(add(a, 0x1f)),
+                // `length != 0 && length < 32`. Abuses underflow.
+                // Assumes that the length is valid and within the block gas limit.
+                lt(sub(mload(a), 1), 0x1f)
+            )
         }
     }
 
@@ -4487,25 +8169,23 @@ library LibString {
             let aLen := mload(a)
             // We don't need to zero right pad the strings,
             // since this is our own custom non-standard packing scheme.
-            result :=
-                mul(
-                    or( // Load the length and the bytes of `a` and `b`.
-                    shl(shl(3, sub(0x1f, aLen)), mload(add(a, aLen))), mload(sub(add(b, 0x1e), aLen))),
-                    // `totalLen != 0 && totalLen < 31`. Abuses underflow.
-                    // Assumes that the lengths are valid and within the block gas limit.
-                    lt(sub(add(aLen, mload(b)), 1), 0x1e)
-                )
+            result := mul(
+                or(
+                    // Load the length and the bytes of `a` and `b`.
+                    shl(shl(3, sub(0x1f, aLen)), mload(add(a, aLen))),
+                    mload(sub(add(b, 0x1e), aLen))
+                ),
+                // `totalLen != 0 && totalLen < 31`. Abuses underflow.
+                // Assumes that the lengths are valid and within the block gas limit.
+                lt(sub(add(aLen, mload(b)), 1), 0x1e)
+            )
         }
     }
 
     /// @dev Unpacks strings packed using {packTwo}.
     /// Returns the empty strings if `packed` is `bytes32(0)`.
     /// If `packed` is not an output of {packTwo}, the output behavior is undefined.
-    function unpackTwo(bytes32 packed)
-        internal
-        pure
-        returns (string memory resultA, string memory resultB)
-    {
+    function unpackTwo(bytes32 packed) internal pure returns (string memory resultA, string memory resultB) {
         /// @solidity memory-safe-assembly
         assembly {
             resultA := mload(0x40) // Grab the free memory pointer.
@@ -4540,7 +8220,6 @@ library LibString {
         }
     }
 }
-
 
 // File solady/src/utils/SSTORE2.sol
 
@@ -4612,10 +8291,7 @@ library SSTORE2 {
 
     /// @dev Writes `data` into the bytecode of a storage contract with `salt`
     /// and returns its normal CREATE2 deterministic address.
-    function writeCounterfactual(bytes memory data, bytes32 salt)
-        internal
-        returns (address pointer)
-    {
+    function writeCounterfactual(bytes memory data, bytes32 salt) internal returns (address pointer) {
         /// @solidity memory-safe-assembly
         assembly {
             let n := mload(data)
@@ -4634,10 +8310,7 @@ library SSTORE2 {
     /// @dev Writes `data` into the bytecode of a storage contract and returns its address.
     /// This uses the so-called "CREATE3" workflow,
     /// which means that `pointer` is agnostic to `data, and only depends on `salt`.
-    function writeDeterministic(bytes memory data, bytes32 salt)
-        internal
-        returns (address pointer)
-    {
+    function writeDeterministic(bytes memory data, bytes32 salt) internal returns (address pointer) {
         /// @solidity memory-safe-assembly
         assembly {
             let n := mload(data)
@@ -4657,7 +8330,8 @@ library SSTORE2 {
             // Do a out-of-gas revert if `n + 1` is more than 2 bytes.
             mstore(add(data, gt(n, 0xfffe)), add(0xfe61000180600a3d393df300, shl(0x40, n)))
             if iszero(
-                mul( // The arguments of `mul` are evaluated last to first.
+                mul(
+                    // The arguments of `mul` are evaluated last to first.
                     extcodesize(pointer),
                     call(gas(), proxy, 0, add(data, 0x15), add(n, 0xb), codesize(), 0x00)
                 )
@@ -4688,22 +8362,18 @@ library SSTORE2 {
     }
 
     /// @dev Equivalent to `predictCounterfactualAddress(data, salt, address(this))`
-    function predictCounterfactualAddress(bytes memory data, bytes32 salt)
-        internal
-        view
-        returns (address pointer)
-    {
+    function predictCounterfactualAddress(bytes memory data, bytes32 salt) internal view returns (address pointer) {
         pointer = predictCounterfactualAddress(data, salt, address(this));
     }
 
     /// @dev Returns the CREATE2 address of the storage contract for `data`
     /// deployed with `salt` by `deployer`.
     /// Note: The returned result has dirty upper 96 bits. Please clean if used in assembly.
-    function predictCounterfactualAddress(bytes memory data, bytes32 salt, address deployer)
-        internal
-        pure
-        returns (address predicted)
-    {
+    function predictCounterfactualAddress(
+        bytes memory data,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
         bytes32 hash = initCodeHash(data);
         /// @solidity memory-safe-assembly
         assembly {
@@ -4724,11 +8394,7 @@ library SSTORE2 {
     }
 
     /// @dev Returns the "CREATE3" deterministic address for `salt` with `deployer`.
-    function predictDeterministicAddress(bytes32 salt, address deployer)
-        internal
-        pure
-        returns (address pointer)
-    {
+    function predictDeterministicAddress(bytes32 salt, address deployer) internal pure returns (address pointer) {
         /// @solidity memory-safe-assembly
         assembly {
             let m := mload(0x40) // Cache the free memory pointer.
@@ -4781,15 +8447,13 @@ library SSTORE2 {
     /// The `pointer` MUST be deployed via the SSTORE2 write functions.
     /// Otherwise, the behavior is undefined.
     /// Out-of-gas reverts if `pointer` does not have any code.
-    function read(address pointer, uint256 start, uint256 end)
-        internal
-        view
-        returns (bytes memory data)
-    {
+    function read(address pointer, uint256 start, uint256 end) internal view returns (bytes memory data) {
         /// @solidity memory-safe-assembly
         assembly {
             data := mload(0x40)
-            if iszero(lt(end, 0xffff)) { end := 0xffff }
+            if iszero(lt(end, 0xffff)) {
+                end := 0xffff
+            }
             let d := mul(sub(end, start), lt(start, end))
             extcodecopy(pointer, add(data, 0x1f), start, add(d, 0x01))
             if iszero(and(0xff, mload(add(data, d)))) {
@@ -4804,31 +8468,26 @@ library SSTORE2 {
     }
 }
 
-
 // File contracts/src/PropositionMarket/PropositionMarketPool.sol
 
 // Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
-
-
-
-
-
-
-contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard {
+contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, Initializable, UUPSUpgradeable {
     using Price for *;
+    using LibClone for *;
     using LibString for *;
     using FixedPointMathLib for *;
 
     uint256 public totalPlatformFee;
     bool public paused;
-    mapping(address => uint256) public optionTvl;
+    uint256 public tvl;
 
-    modifier onlyManager() {
-        if (getManagerAddress() != msg.sender) revert OwnableUnauthorizedAccount(msg.sender);
+    modifier onlyFactory() {
+        if (getFactoryAddress() != msg.sender) revert OwnableUnauthorizedAccount(msg.sender);
         _;
     }
+
     modifier whenNotPaused() {
         if (paused) revert EnforcedPause();
         _;
@@ -4844,41 +8503,13 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         _;
     }
 
-    function buy(
-        IPropositionMarketToken token,
-        uint256 tokenAmount,
-        uint256 maxUsdtProvided,
-        uint256 expireTimestamp
-    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
-        // calculate price and amount
-        (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
-        uint256 tokenPrice = Price.getExecutionPrice(tokenSupply, supplyOther, int256(tokenAmount));
-        uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
+    constructor() {
+        _disableInitializers();
+    }
 
-        // calculate platform fee
-        uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
-        totalPlatformFee += platformFee;
-
-        // transfer usdt from sender
-        uint256 usdtNetAmount = usdtAmount.rawAdd(platformFee);
-        if (usdtNetAmount > maxUsdtProvided) revert SlippageFailed(usdtNetAmount, maxUsdtProvided);
-        if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
-
-        // update tvl
-        optionTvl[address(token)] += usdtNetAmount;
-
-        // mint and transfer token to sender
-        _mintAndTransfer(token, tokenAmount);
-
-        // emit event
-        IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
-            address(token),
-            msg.sender,
-            int256(tokenAmount),
-            tokenPrice
-        );
-
-        return tokenAmount;
+    function initialize() external initializer {
+        // any logic you want at deployment time, eg registering with factory
+        __UUPSUpgradeable_init();
     }
 
     function buy(
@@ -4887,7 +8518,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 usdtProvided,
         uint256 minTokenReceived,
         uint256 expireTimestamp
-    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(usdtProvided) returns (uint256) {
+    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(usdtProvided) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
 
@@ -4901,18 +8532,12 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
             (usdtProvided.rawSub(usdtNetAmount) > (usdtProvided / Price.DEFAULT_APPROXIMATION_PRECISION))
         ) {
             // Recalculate token amount and execution price by approximation
-            (uint256 newTokenAmount, uint256 executionPrice) = Price.approximateExecutionPrice(
-                tokenSupply,
-                supplyOther,
-                usdtAmount
-            );
+            (tokenAmount, tokenPrice) = Price.approximateExecutionPrice(tokenSupply, supplyOther, usdtAmount);
 
             // check slippage
-            if (newTokenAmount < minTokenReceived) revert SlippageFailed(newTokenAmount, minTokenReceived);
+            if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
 
             // Update values with new token amount
-            tokenAmount = newTokenAmount;
-            tokenPrice = executionPrice;
             usdtAmount = tokenPrice.mulWad(tokenAmount);
             usdtNetAmount = usdtAmount.divWad(1 ether.rawSub(getPlatformFee()));
         }
@@ -4924,7 +8549,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
 
         // update tvl
-        optionTvl[address(token)] += usdtAmount;
+        tvl += usdtAmount;
 
         // mint and transfer token to sender
         if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
@@ -4938,8 +8563,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
             int256(tokenAmount),
             tokenPrice
         );
-
-        return tokenAmount;
+        emit Swap(msg.sender, usdtNetAmount, tokenAmount, address(getPayTokenAddress()), address(token));
     }
 
     function sell(
@@ -4947,10 +8571,10 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         uint256 tokenAmount,
         uint256 minUsdtReceived,
         uint256 expireTimestamp
-    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) returns (uint256) {
+    ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
-        uint256 tokenPrice = tokenSupply.getExecutionPrice(supplyOther, int256(tokenAmount));
+        uint256 tokenPrice = tokenSupply.getExecutionPrice(supplyOther, -int256(tokenAmount));
         uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
 
         // calculate platform fee
@@ -4962,11 +8586,10 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         if (usdtNetAmount < minUsdtReceived) revert SlippageFailed(usdtNetAmount, minUsdtReceived);
 
         // transfer token from sender and burn it
-        if (!token.transferFrom(msg.sender, address(this), tokenAmount)) revert PaymentFailed();
-        token.burn(address(this), tokenAmount);
+        token.burn(msg.sender, tokenAmount);
 
         // update tvl
-        optionTvl[address(token)] -= usdtNetAmount;
+        tvl -= usdtAmount;
 
         // transfer usdt to sender
         if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
@@ -4978,11 +8601,10 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
             -int256(tokenAmount),
             tokenPrice
         );
-
-        return usdtNetAmount;
+        emit Swap(msg.sender, usdtNetAmount, tokenAmount, address(getPayTokenAddress()), address(token));
     }
 
-    function receivePlatformFee(address receiver) external onlyManager {
+    function collectPlatformFee(address receiver) external onlyFactory {
         if (totalPlatformFee == 0) revert InsufficientBalance();
         uint256 oldTotalPlatformFee = totalPlatformFee;
 
@@ -4991,38 +8613,27 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         if (!getPayTokenAddress().transfer(receiver, oldTotalPlatformFee)) revert PaymentFailed();
     }
 
-    function pausedPool() external onlyManager {
+    function pausedPool() external onlyFactory {
         if (paused) revert EnforcedPause();
         emit Paused(paused = !paused);
     }
 
-    function getFeeRecipient() external view returns (address) {
-        return IPropositionMarketFactory(getFactoryAddress()).getFeeRecipient();
-    }
-
-    function getOptionListLength() external pure returns (uint256) {
-        return _getArgUint64(0);
-    }
-
-    function calculateSpotPrice(uint256 supply, uint256 supplyOther) external pure returns (uint256) {
-        return Price.getSpotPrice(supply, supplyOther);
-    }
-
-    function calculateExecutionPrice(
-        uint256 supply,
-        uint256 supplyOther,
-        int256 amountChanged
-    ) external pure returns (uint256) {
-        return Price.getExecutionPrice(supply, supplyOther, amountChanged);
+    function getOptionListLength() public view returns (uint256 length) {
+        bytes memory data = address(this).argsOnERC1967(0, 8);
+        assembly {
+            length := shr(192, mload(add(data, 32))) // 取低8字节
+        }
+        return length;
     }
 
     function getOptionList() public view returns (address[] memory) {
         unchecked {
-            address dataPointer = _getArgAddress(8);
+            uint256 length = getOptionListLength();
+            address dataPointer = _bytesToAddressExact(address(this).argsOnERC1967(8, 28));
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
 
-            address[] memory sliced = new address[](_getArgUint64(0));
-            for (uint256 i = 0; i < _getArgUint64(0); ++i) {
+            address[] memory sliced = new address[](length);
+            for (uint256 i = 0; i < length; ++i) {
                 sliced[i] = fullList[i];
             }
 
@@ -5032,7 +8643,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
 
     function getFactoryAddress() public view returns (address) {
         unchecked {
-            address dataPointer = _getArgAddress(8);
+            address dataPointer = _bytesToAddressExact(address(this).argsOnERC1967(8, 28));
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
             return fullList[fullList.length - 3];
         }
@@ -5040,7 +8651,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
 
     function getManagerAddress() public view returns (address) {
         unchecked {
-            address dataPointer = _getArgAddress(8);
+            address dataPointer = _bytesToAddressExact(address(this).argsOnERC1967(8, 28));
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
             return fullList[fullList.length - 2];
         }
@@ -5048,7 +8659,7 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
 
     function getPayTokenAddress() public view returns (IERC20) {
         unchecked {
-            address dataPointer = _getArgAddress(8);
+            address dataPointer = _bytesToAddressExact(address(this).argsOnERC1967(8, 28));
             address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
             return IERC20(fullList[fullList.length - 1]);
         }
@@ -5084,35 +8695,17 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         );
     }
 
-    function getApproximatePrice(
-        address token,
-        uint256 usdtAmount
-    ) public view returns (uint256 tokenAmount, uint256 avgPrice) {
-        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
-        (tokenAmount, avgPrice) = Price.approximateExecutionPrice(
-            supply,
-            supplyOther,
-            usdtAmount,
-            Price.DEFAULT_APPROXIMATION_PRECISION,
-            Price.DEFAULT_MAX_ITERATIONS
-        );
-    }
-
-    function getPoolTitle() public pure returns (string memory) {
+    function getPoolTitle() public view returns (string memory) {
         unchecked {
-            return _getArgBytes32(28).fromSmallString();
+            return _bytesToBytes32(address(this).argsOnERC1967(28, 60)).fromSmallString();
         }
     }
 
-    function getPoolVersion() public pure returns (string memory) {
-        unchecked {
-            return _getArgBytes32(60).fromSmallString();
-        }
-    }
+    function _authorizeUpgrade(address newImplementation) internal override onlyFactory {}
 
     function _mintAndTransfer(IPropositionMarketToken token, uint256 tokenAmount) internal {
-        token.mint(address(this), tokenAmount);
-        if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
+        token.mint(msg.sender, tokenAmount);
+        // if (!token.transfer(msg.sender, tokenAmount)) revert PaymentFailed();
     }
 
     function _getSupplies(address token) internal view returns (uint256 supply, uint256 supplyOther) {
@@ -5129,5 +8722,17 @@ contract PropositionMarketPool is IPropositionMarketPool, CWIA, ReentrancyGuard 
         }
 
         if (!find) revert InvalidToken();
+    }
+
+    function _bytesToAddressExact(bytes memory data) internal pure returns (address result) {
+        assembly {
+            result := shr(96, mload(add(data, 32))) // shift right 96 bits = 12 bytes = keep low 20 bytes
+        }
+    }
+
+    function _bytesToBytes32(bytes memory data) internal pure returns (bytes32 result) {
+        assembly {
+            result := mload(add(data, 32))
+        }
     }
 }

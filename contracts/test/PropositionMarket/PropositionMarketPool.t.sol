@@ -2,11 +2,11 @@
 pragma solidity ^0.8.23;
 
 import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
-
-import {PropositionMarketFactory, FactorySettings, TokenSettings, MarketSettings} from "../../src/PropositionMarket/PropositionMarketFactory.sol";
-import {PropositionMarketToken, ERC20, Ownable} from "../../src/PropositionMarket/PropositionMarketToken.sol";
-import {IPropositionMarketToken, IPropositionMarketPool, PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
 import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
+import {IPropositionMarketPool, IPropositionMarketPool_Def} from "../../src/PropositionMarket/interfaces/IPropositionMarketPool.sol";
+import {PropositionMarketToken, ERC20, Ownable} from "../../src/PropositionMarket/PropositionMarketToken.sol";
+import {IPropositionMarketToken, IPropositionMarketPool_Def, PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
+import {PropositionMarketFactory, FactorySettings, TokenSettings, MarketSettings} from "../../src/PropositionMarket/PropositionMarketFactory.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -41,7 +41,7 @@ contract PropositionMarketPoolTest is Test {
                 initialOwner,
                 propositionMarketPool,
                 tokenAddress,
-                FactorySettings({feeRecipient: initialOwner, platformFee: 0.01 ether})
+                FactorySettings({feeRecipient: initialOwner, platformFee: 0 ether})
             )
         );
         address proxy = address(new ERC1967Proxy(propositionMarketFactoryAddress, data));
@@ -50,11 +50,9 @@ contract PropositionMarketPoolTest is Test {
 
         nameAndSymbolList = new TokenSettings[](2);
 
-        nameAndSymbolList[0].owner = address(propositionMarketFactory);
         nameAndSymbolList[0].name = "Test Token One";
         nameAndSymbolList[0].symbol = "TTO";
 
-        nameAndSymbolList[1].owner = address(propositionMarketFactory);
         nameAndSymbolList[1].name = "Test Token Two";
         nameAndSymbolList[1].symbol = "TTT";
     }
@@ -65,8 +63,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(PropositionMarketPool(pool).getOptionListLength(), nameAndSymbolList.length);
@@ -78,8 +75,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         address[] memory propositionTokenAddressList = propositionMarketFactory.predictDeterministicAddress(
@@ -101,24 +97,10 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(PropositionMarketPool(pool).getFactoryAddress(), address(propositionMarketFactory));
-    }
-
-    function test_getManagerAddress() public {
-        vm.startPrank(initialOwner, initialOwner);
-
-        address pool = propositionMarketFactory.createContracts(
-            nameAndSymbolList,
-            "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
-        );
-
-        assertEq(PropositionMarketPool(pool).getManagerAddress(), initialOwner);
     }
 
     function test_getPoolTitle() public {
@@ -127,8 +109,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(PropositionMarketPool(pool).getPoolTitle(), "testtesttesttest");
@@ -140,8 +121,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(address(PropositionMarketPool(pool).getPayTokenAddress()), address(testTokenAddress));
@@ -153,39 +133,10 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
-        assertEq(PropositionMarketPool(pool).getFeeRecipient(), address(initialOwner));
-        assertEq(PropositionMarketPool(pool).getPlatformFee(), 0.01 ether);
-    }
-
-    function test_receivePlatformFee() public {
-        vm.startPrank(initialOwner, initialOwner);
-
-        address pool = propositionMarketFactory.createContracts(
-            nameAndSymbolList,
-            "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
-        );
-
-        vm.expectRevert(abi.encodeWithSelector(IPropositionMarketPool.InsufficientBalance.selector));
-        PropositionMarketPool(pool).receivePlatformFee(initialOwner);
-
-        vm.startPrank(
-            address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
-            address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8)
-        );
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IPropositionMarketPool.OwnableUnauthorizedAccount.selector,
-                address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8)
-            )
-        );
-        PropositionMarketPool(pool).receivePlatformFee(initialOwner);
+        assertEq(PropositionMarketPool(pool).getPlatformFee(), 0 ether);
     }
 
     function test_pausedPool() public {
@@ -194,8 +145,7 @@ contract PropositionMarketPoolTest is Test {
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         vm.startPrank(
@@ -205,43 +155,27 @@ contract PropositionMarketPoolTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IPropositionMarketPool.OwnableUnauthorizedAccount.selector,
+                IPropositionMarketPool_Def.OwnableUnauthorizedAccount.selector,
                 address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8)
             )
         );
         PropositionMarketPool(pool).pausedPool();
 
         vm.startPrank(initialOwner, initialOwner);
+        IPropositionMarketPool[] memory designatedPool = new IPropositionMarketPool[](1);
+        designatedPool[0] = IPropositionMarketPool(pool);
+        propositionMarketFactory.pausedDesignatedPool(designatedPool);
 
-        PropositionMarketPool(pool).pausedPool();
+        vm.expectRevert(abi.encodeWithSelector(IPropositionMarketPool_Def.EnforcedPause.selector));
 
-        vm.expectRevert(abi.encodeWithSelector(IPropositionMarketPool.EnforcedPause.selector));
-        PropositionMarketPool(pool).pausedPool();
-    }
-
-    function test_getPoolVersion() public {
-        vm.startPrank(initialOwner, initialOwner);
-
-        address pool = propositionMarketFactory.createContracts(
-            nameAndSymbolList,
-            "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
-        );
-
-        assertEq(PropositionMarketPool(pool).getPoolVersion(), propositionMarketFactory.getPoolVersion());
+        propositionMarketFactory.pausedDesignatedPool(designatedPool);
     }
 
     function test_PoolRole() public {
         vm.startPrank(initialOwner, initialOwner);
 
         PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
         );
 
         assertEq(propositionMarketFactory.hasRole(propositionMarketFactory.POOL_ROLE(), address(pool)), true);
@@ -250,34 +184,30 @@ contract PropositionMarketPoolTest is Test {
     /**
      * @dev Tests the single-sided buy function.
      */
-    function test_buy() public {
+    function test_buy() public returns (PropositionMarketPool) {
         vm.startPrank(initialOwner, initialOwner);
 
         PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
         );
 
         address[] memory tokenAddressList = pool.getOptionList();
 
         // Mint and approve USDT
-        testTokenAddress.mint(initialOwner, 100 ether);
-        testTokenAddress.approve(address(pool), 100 ether);
+        testTokenAddress.mint(initialOwner, 100000 ether);
+        testTokenAddress.approve(address(pool), 100000 ether);
 
         uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
-        // uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        assertEq(usdtBalanceBefore, 100000 ether);
+        uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        assertEq(tokenBalanceBefore, 0 ether);
 
         // 打印初始余额
 
         // Test basic buy for just one token (single-sided)
         uint256 maxUsdtProvided = 2 ether; // Max USDT to spend
 
-        uint256 estimateServiceFee = maxUsdtProvided.mulWad(pool.getPlatformFee());
-        uint256 usdtForBuyingToken = maxUsdtProvided.rawSub(estimateServiceFee);
+        uint256 usdtForBuyingToken = maxUsdtProvided.rawSub(maxUsdtProvided.mulWad(pool.getPlatformFee()));
 
         // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
         (uint256 tokenAmount, ) = pool.getApproximatePrice(
@@ -287,7 +217,6 @@ contract PropositionMarketPoolTest is Test {
             50 // 最多50次迭代
         );
 
-        // uint256 tokensReceived =
         pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
             tokenAmount,
@@ -296,36 +225,28 @@ contract PropositionMarketPoolTest is Test {
             block.timestamp + 3600
         );
 
-        // Check token balance
         uint256 tokenBalance = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
 
-        //assertEq(tokenBalance, tokensReceived, "Token balance should match tokens received");
+        // Check token balance
+
+        assertEq(tokenBalance, tokenAmount, "Token balance should match tokens received");
 
         // check usdt
         uint256 serviceFee = pool.totalPlatformFee();
 
-        // uint256 usdtReceviedForPool = pool.optionTvl(tokenAddressList[0]);
+        uint256 usdtReceviedForPool = pool.tvl();
         uint256 usdtBalance = testTokenAddress.balanceOf(initialOwner);
         uint256 usdtReduced = usdtBalanceBefore - usdtBalance;
 
-        // assertEq(usdtReduced, usdtReceviedForPool + serviceFee, "USDT balance should match");
+        assertEq(usdtReduced, usdtReceviedForPool + serviceFee, "USDT balance should match");
+        return pool;
     }
 
     /**
      * @dev Tests the single-sided sell function.
      */
     function test_Sell() public {
-        vm.startPrank(initialOwner, initialOwner);
-
-        PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
-        );
-
+        PropositionMarketPool pool = test_buy();
         address[] memory tokenAddressList = pool.getOptionList();
 
         // Mint and approve USDT
@@ -334,16 +255,16 @@ contract PropositionMarketPoolTest is Test {
 
         // First buy some tokens to sell later
         uint256 buyTokenAmount = 5 ether;
-        
+
         // 计算购买指定数量代币所需的USDT金额（包含平台费用）
         uint256 buyTokenPrice = pool.getExecutionPrice(tokenAddressList[0], int256(buyTokenAmount));
         uint256 baseUsdtAmount = buyTokenPrice.mulWad(buyTokenAmount);
         uint256 platformFeeAmount = baseUsdtAmount.mulWad(pool.getPlatformFee());
         uint256 totalUsdtNeeded = baseUsdtAmount.rawAdd(platformFeeAmount);
-        
+
         // 记录买入前的代币余额
         uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
-        
+
         // 使用带有滑点保护的buy方法
         pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
@@ -352,30 +273,37 @@ contract PropositionMarketPoolTest is Test {
             buyTokenAmount.mulWad(0.99 ether), // 设置minTokenReceived为请求数量的99%
             block.timestamp + 3600
         );
-        
+
         // 计算获得的代币数量
-        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) - tokenBalanceBefore;
+        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) -
+            tokenBalanceBefore;
 
         // Record balances before selling
         uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
-        
+
         // 其他记录不需要了
         // uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
         // uint256 platformFeeBefore = pool.totalPlatformFee();
         // uint256 optionTvlBefore = pool.optionTvl(tokenAddressList[0]);
+        uint256 tokenBalance = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
 
         // Check pool's USDT balance before selling
         uint256 poolUsdtBalanceBefore = pool.getPayTokenAddress().balanceOf(address(pool));
 
+        assertGt(poolUsdtBalanceBefore, 1.99 ether);
+
         // Approve tokens to sell all
-        uint256 tokensToSell = tokensReceived;
+        uint256 tokensToSell = tokenBalance;
 
         IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokensToSell);
 
         // Get expected sell price
-        // uint256 expectedPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
+        uint256 expectedPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
 
-        // uint256 usdtReceived =
+        // // uint256 usdtReceived =
+        uint256 payTokenBalanceBefore = pool.getPayTokenAddress().balanceOf(address(initialOwner));
+        uint256 optionTvlBefore = pool.tvl();
+
         pool.sell(
             IPropositionMarketToken(tokenAddressList[0]),
             tokensToSell,
@@ -384,27 +312,25 @@ contract PropositionMarketPoolTest is Test {
         );
 
         // Check token balance
-        uint256 tokenBalance = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 payTokenAmount = expectedPrice.mulWad(tokensToSell);
 
-        assertEq(tokenBalance, tokensReceived - tokensToSell, "Token balance should be reduced by sold amount");
+        uint256 tokenBalanceAfter = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 payTokenBalanceAfter = pool.getPayTokenAddress().balanceOf(address(initialOwner));
 
+        assertEq(tokenBalanceAfter, 0, "Token balance should be reduced by sold amount");
+        assertEq(payTokenBalanceAfter, payTokenBalanceBefore + payTokenAmount);
         // Check TVL change
-        // uint256 optionTvlAfter = pool.optionTvl(tokenAddressList[0]);
+        uint256 optionTvlAfter = pool.tvl();
 
-        // uint256 tvlDiff = optionTvlBefore - optionTvlAfter;
-        // assertEq(usdtReceived, tvlDiff, "USDT received should equal TVL reduction");
+        uint256 tvlDiff = optionTvlBefore - optionTvlAfter;
+        assertEq(payTokenAmount, tvlDiff, "USDT received should equal TVL reduction");
 
         // Check pool's USDT balance after selling
         uint256 poolUsdtBalanceAfter = pool.getPayTokenAddress().balanceOf(address(pool));
 
         uint256 poolUsdtDiff = poolUsdtBalanceBefore - poolUsdtBalanceAfter;
 
-        // assertEq(poolUsdtDiff, usdtReceived, "Pool USDT balance reduction should equal USDT received");
-
-        // Check USDT balance
-        uint256 usdtBalanceAfter = testTokenAddress.balanceOf(initialOwner);
-
-        // assertEq(usdtBalanceAfter, usdtBalanceBefore + usdtReceived, "USDT balance should increase by received amount");
+        assertEq(poolUsdtDiff, payTokenAmount, "Pool USDT balance reduction should equal USDT received");
 
         // Check platform fee and TVL
         // uint256 platformFeeAfter = pool.totalPlatformFee();
@@ -418,12 +344,7 @@ contract PropositionMarketPoolTest is Test {
         vm.startPrank(initialOwner, initialOwner);
 
         PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
         );
 
         address[] memory tokenAddressList = pool.getOptionList();
@@ -434,23 +355,27 @@ contract PropositionMarketPoolTest is Test {
 
         // 提供USDT金额
         uint256 usdtProvided = 2 ether;
-        
+
         // 设置一个很高的最小代币接收量，确保会触发滑点保护
         uint256 minTokenReceived = 1000 ether;
 
         // 获取大致可以购买的代币数量
         (uint256 approxTokenAmount, ) = pool.getApproximatePrice(
             tokenAddressList[0],
-            usdtProvided.rawSub(usdtProvided.mulWad(pool.getPlatformFee())), 
-            1e9, 
+            usdtProvided.rawSub(usdtProvided.mulWad(pool.getPlatformFee())),
+            1e9,
             50
         );
-        
+
         // 预期会因为滑点保护失败而回滚，并且验证错误参数
         vm.expectRevert(
-            abi.encodeWithSelector(IPropositionMarketPool.SlippageFailed.selector, approxTokenAmount, minTokenReceived)
+            abi.encodeWithSelector(
+                IPropositionMarketPool_Def.SlippageFailed.selector,
+                approxTokenAmount,
+                minTokenReceived
+            )
         );
-        
+
         pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
             approxTokenAmount, // 使用计算出的预期代币数量
@@ -459,7 +384,7 @@ contract PropositionMarketPoolTest is Test {
             block.timestamp + 3600 // 过期时间
         );
     }
-    
+
     /**
      * @dev Tests the buy function with slippage protection that succeeds despite price discrepancy.
      */
@@ -467,12 +392,7 @@ contract PropositionMarketPoolTest is Test {
         vm.startPrank(initialOwner, initialOwner);
 
         PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
         );
 
         address[] memory tokenAddressList = pool.getOptionList();
@@ -483,26 +403,26 @@ contract PropositionMarketPoolTest is Test {
 
         // 提供USDT金额
         uint256 usdtProvided = 2 ether;
-        
+
         // 获取大致可以购买的代币数量
         (uint256 approxTokenAmount, ) = pool.getApproximatePrice(
             tokenAddressList[0],
-            usdtProvided.rawSub(usdtProvided.mulWad(pool.getPlatformFee())), 
-            1e9, 
+            usdtProvided.rawSub(usdtProvided.mulWad(pool.getPlatformFee())),
+            1e9,
             50
         );
-        
+
         // 设置一个略低于预期数量的最小接收量，确保在可接受的滑点范围内
         uint256 minTokenReceived = approxTokenAmount.mulWad(0.95 ether); // 允许5%的滑点
-        
+
         // 请求购买的金额故意设置为稍大于最小接收量，但小于预期值
         // 这样模拟了实际执行价格与预估价格有偏差的情况
         uint256 requestTokenAmount = minTokenReceived.rawAdd(1 ether); // 请求略高于最小接收量的值
-        
+
         // 记录交易前的余额
         uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
         uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
-        
+
         // 执行购买，预期应该成功（尽管获得的代币可能比请求的少，但会多于最小接收量）
         pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
@@ -511,24 +431,24 @@ contract PropositionMarketPoolTest is Test {
             minTokenReceived, // 最小接收量
             block.timestamp + 3600
         );
-        
+
         // 验证交易成功并获得了代币
         uint256 tokenBalanceAfter = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
         uint256 usdtBalanceAfter = testTokenAddress.balanceOf(initialOwner);
         uint256 tokenReceived = tokenBalanceAfter - tokenBalanceBefore;
         uint256 usdtSpent = usdtBalanceBefore - usdtBalanceAfter;
-        
+
         // 输出实际值，帮助调试
         // console.log("Requested token amount:", requestTokenAmount);
         // console.log("Estimated token amount:", approxTokenAmount);
         // console.log("Minimum token required:", minTokenReceived);
         // console.log("Actually received tokens:", tokenReceived);
         // console.log("USDT spent:", usdtSpent);
-        
+
         // 验证：
         // 1. 收到的代币数量大于等于最小接收量（滑点保护有效）
         assertGe(tokenReceived, minTokenReceived, "Received token amount should be >= minTokenReceived");
-        
+
         // 2. 收到的代币可能小于请求的数量（因为有价格偏差）
         // 但一定小于等于预估可获得的最大数量
         assertLe(tokenReceived, requestTokenAmount, "Received token amount should be <= requestTokenAmount");
@@ -538,12 +458,7 @@ contract PropositionMarketPoolTest is Test {
         vm.startPrank(initialOwner, initialOwner);
 
         PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
         );
 
         address[] memory tokenAddressList = pool.getOptionList();
@@ -554,16 +469,16 @@ contract PropositionMarketPoolTest is Test {
 
         // 先购买一些代币
         uint256 buyTokenAmount = 5 ether;
-        
+
         // 计算购买指定数量代币所需的USDT金额（包含平台费用）
         uint256 buyTokenPrice = pool.getExecutionPrice(tokenAddressList[0], int256(buyTokenAmount));
         uint256 baseUsdtAmount = buyTokenPrice.mulWad(buyTokenAmount);
         uint256 platformFeeAmount = baseUsdtAmount.mulWad(pool.getPlatformFee());
         uint256 totalUsdtNeeded = baseUsdtAmount.rawAdd(platformFeeAmount);
-        
+
         // 记录买入前的代币余额
         uint256 buyTokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
-        
+
         // 使用带有滑点保护的buy方法
         pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
@@ -572,36 +487,41 @@ contract PropositionMarketPoolTest is Test {
             buyTokenAmount.mulWad(0.99 ether), // 设置minTokenReceived为请求数量的99%
             block.timestamp + 3600
         );
-        
+
         // 计算获得的代币数量
-        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) - buyTokenBalanceBefore;
+        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) -
+            buyTokenBalanceBefore;
 
         // 准备卖出所有代币
         uint256 tokensToSell = tokensReceived;
         IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokensToSell);
-        
+
         // 计算预期可以获得的USDT金额
         uint256 sellTokenPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
         uint256 expectedUsdtAmount = sellTokenPrice.mulWad(tokensToSell);
         uint256 platformFee = expectedUsdtAmount.mulWad(pool.getPlatformFee());
         uint256 expectedUsdtNetAmount = expectedUsdtAmount.rawSub(platformFee);
-        
+
         // 设置一个高于预期金额的最小USDT接收量，确保会触发滑点保护
         uint256 minUsdtReceived = expectedUsdtNetAmount.rawAdd(1 ether);
-        
+
         // 预期会因为滑点保护失败而回滚，并且验证错误参数
         vm.expectRevert(
-            abi.encodeWithSelector(IPropositionMarketPool.SlippageFailed.selector, expectedUsdtNetAmount, minUsdtReceived)
+            abi.encodeWithSelector(
+                IPropositionMarketPool_Def.SlippageFailed.selector,
+                expectedUsdtNetAmount,
+                minUsdtReceived
+            )
         );
-        
+
         pool.sell(
             IPropositionMarketToken(tokenAddressList[0]),
-            tokensToSell, 
+            tokensToSell,
             minUsdtReceived, // 设置很高的最小接收量
             block.timestamp + 3600 // 过期时间
         );
     }
-    
+
     /**
      * @dev Tests the sell function with slippage protection that succeeds despite price discrepancy.
      */
@@ -609,12 +529,7 @@ contract PropositionMarketPoolTest is Test {
         vm.startPrank(initialOwner, initialOwner);
 
         PropositionMarketPool pool = PropositionMarketPool(
-            propositionMarketFactory.createContracts(
-                nameAndSymbolList,
-                "testtesttesttest",
-                address(testTokenAddress),
-                initialOwner
-            )
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
         );
 
         address[] memory tokenAddressList = pool.getOptionList();
@@ -625,16 +540,16 @@ contract PropositionMarketPoolTest is Test {
 
         // 先购买一些代币
         uint256 buyTokenAmount = 5 ether;
-        
+
         // 计算购买指定数量代币所需的USDT金额（包含平台费用）
         uint256 buyTokenPrice = pool.getExecutionPrice(tokenAddressList[0], int256(buyTokenAmount));
         uint256 baseUsdtAmount = buyTokenPrice.mulWad(buyTokenAmount);
         uint256 platformFeeAmount = baseUsdtAmount.mulWad(pool.getPlatformFee());
         uint256 totalUsdtNeeded = baseUsdtAmount.rawAdd(platformFeeAmount);
-        
+
         // 记录买入前的代币余额
         uint256 buyTokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
-        
+
         // 使用带有滑点保护的buy方法
         pool.buy(
             IPropositionMarketToken(tokenAddressList[0]),
@@ -643,27 +558,28 @@ contract PropositionMarketPoolTest is Test {
             buyTokenAmount.mulWad(0.99 ether), // 设置minTokenReceived为请求数量的99%
             block.timestamp + 3600
         );
-        
+
         // 计算获得的代币数量
-        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) - buyTokenBalanceBefore;
-        
+        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) -
+            buyTokenBalanceBefore;
+
         // 准备卖出所有代币
         uint256 tokensToSell = tokensReceived;
         IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokensToSell);
-        
+
         // 计算预期可以获得的USDT金额
         uint256 sellTokenPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
         uint256 expectedUsdtAmount = sellTokenPrice.mulWad(tokensToSell);
         uint256 platformFee = expectedUsdtAmount.mulWad(pool.getPlatformFee());
         uint256 expectedUsdtNetAmount = expectedUsdtAmount.rawSub(platformFee);
-        
+
         // 设置一个低于预期金额的最小USDT接收量，确保在可接受的滑点范围内
         uint256 minUsdtReceived = expectedUsdtNetAmount.mulWad(0.95 ether); // 允许5%的滑点
-        
+
         // 记录交易前的余额
         uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
         uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
-        
+
         // 执行卖出，预期应该成功（尽管获得的USDT可能有所不同，但会多于最小接收量）
         pool.sell(
             IPropositionMarketToken(tokenAddressList[0]),
@@ -671,48 +587,126 @@ contract PropositionMarketPoolTest is Test {
             minUsdtReceived, // 最小接收量
             block.timestamp + 3600
         );
-        
+
         // 验证交易成功并获得了USDT
         uint256 tokenBalanceAfter = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
         uint256 usdtBalanceAfter = testTokenAddress.balanceOf(initialOwner);
         uint256 tokensSold = tokenBalanceBefore - tokenBalanceAfter;
         uint256 usdtReceived = usdtBalanceAfter - usdtBalanceBefore;
-        
+
         // 验证：
         // 1. 卖出的代币数量等于计划卖出的数量
         assertEq(tokensSold, tokensToSell, "Sold token amount should match the requested amount");
-        
+
         // 2. 收到的USDT金额大于等于最小接收量（滑点保护有效）
         assertGe(usdtReceived, minUsdtReceived, "Received USDT amount should be >= minUsdtReceived");
-        
+
         // 3. 收到的USDT金额应该接近预期金额
-        assertLe(usdtReceived, expectedUsdtNetAmount.rawAdd(expectedUsdtNetAmount.mulWad(0.01 ether)), "Received USDT amount should be close to expected");
+        assertLe(
+            usdtReceived,
+            expectedUsdtNetAmount.rawAdd(expectedUsdtNetAmount.mulWad(0.01 ether)),
+            "Received USDT amount should be close to expected"
+        );
     }
 
-    // function test_buyOption() public {
+    function test_sell_slippage_revert() public {
+        vm.startPrank(initialOwner, initialOwner);
 
-    // function buyToken() public {
-    //     vm.startPrank(initialOwner, initialOwner);
+        PropositionMarketPool pool = PropositionMarketPool(
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
+        );
+        address[] memory tokenAddressList = pool.getOptionList();
 
-    //     PropositionMarketPool pool = PropositionMarketPool(
-    //         propositionMarketFactory.createContracts(
-    //             nameAndSymbolList,
-    //             "testtesttesttest",
-    //             address(testTokenAddress),
-    //             initialOwner
-    //         )
-    //     );
+        testTokenAddress.mint(initialOwner, 100000 ether);
+        testTokenAddress.approve(address(pool), 100000 ether);
 
-    //     address[] memory tokenAddressList = pool.getOptionList();
+        uint256 maxUsdtProvided = 2 ether;
+        (uint256 tokenAmount, ) = pool.getApproximatePrice(tokenAddressList[0], maxUsdtProvided, 1e9, 50);
 
-    //     testTokenAddress.mint(initialOwner, 100 ether);
-    //     testTokenAddress.approve(address(pool), 100 ether);
+        pool.buy(
+            IPropositionMarketToken(tokenAddressList[0]),
+            tokenAmount,
+            maxUsdtProvided,
+            uint256(0),
+            block.timestamp + 3600
+        );
 
-    //     pool.buy(
-    //         IPropositionMarketToken(IPropositionMarketToken(tokenAddressList[0])),
-    //         5000000 ether,
-    //         10000000 ether,
-    //         block.timestamp + 3600
-    //     );
-    // }
+        uint256 tokenBalance = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        assertEq(tokenBalance, tokenAmount);
+
+        IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokenBalance);
+
+        uint256 unrealisticallyHighMinUsdt = 10000 ether;
+
+        vm.expectRevert(); // 期望revert
+        pool.sell(
+            IPropositionMarketToken(tokenAddressList[0]),
+            tokenBalance,
+            unrealisticallyHighMinUsdt,
+            block.timestamp + 3600
+        );
+    }
+
+    function test_buyOption() public {
+        vm.startPrank(initialOwner, initialOwner);
+        PropositionMarketPool pool = createContractsAndMintPayToken();
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        for (uint256 i; i < 100; ++i) {
+            uint256 maxUsdtProvided = 2 ether; // Max USDT to spend
+
+            uint256 usdtForBuyingToken = maxUsdtProvided.rawSub(maxUsdtProvided.mulWad(pool.getPlatformFee()));
+
+            // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+            (uint256 tokenAmount, ) = pool.getApproximatePrice(
+                tokenAddressList[0],
+                usdtForBuyingToken,
+                1e9, // 1/1000000000 误差
+                50 // 最多50次迭代
+            );
+            buyToken(pool, tokenAmount, maxUsdtProvided);
+        }
+        uint256 tokenBalance = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+
+        for (uint256 i; i < 100; ++i) {
+            sellToken(pool, tokenBalance / (100));
+        }
+    }
+
+    function buyToken(PropositionMarketPool pool, uint256 tokenAmount, uint256 maxUsdtProvided) public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        pool.buy(
+            IPropositionMarketToken(tokenAddressList[0]),
+            tokenAmount,
+            maxUsdtProvided,
+            uint256(0),
+            block.timestamp + 3600
+        );
+    }
+
+    function sellToken(PropositionMarketPool pool, uint256 tokensToSell) public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        pool.sell(
+            IPropositionMarketToken(tokenAddressList[0]),
+            tokensToSell,
+            0, // No slippage protection
+            block.timestamp + 3600
+        );
+    }
+
+    function createContractsAndMintPayToken() public returns (PropositionMarketPool) {
+        PropositionMarketPool pool = PropositionMarketPool(
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
+        );
+        // Mint and approve USDT
+        testTokenAddress.mint(initialOwner, 100000 ether);
+        testTokenAddress.approve(address(pool), 100000 ether);
+        return pool;
+    }
 }

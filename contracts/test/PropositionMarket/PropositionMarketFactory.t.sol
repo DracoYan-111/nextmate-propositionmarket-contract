@@ -8,7 +8,6 @@ import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-
 import {Test} from "forge-std/Test.sol";
 
 contract PropositionMarketFactoryTest is Test {
@@ -45,11 +44,9 @@ contract PropositionMarketFactoryTest is Test {
 
         nameAndSymbolList = new TokenSettings[](2);
 
-        nameAndSymbolList[0].owner = address(propositionMarketFactory);
         nameAndSymbolList[0].name = "Test Token One";
         nameAndSymbolList[0].symbol = "TTO";
 
-        nameAndSymbolList[1].owner = address(propositionMarketFactory);
         nameAndSymbolList[1].name = "Test Token Two";
         nameAndSymbolList[1].symbol = "TTT";
     }
@@ -68,8 +65,7 @@ contract PropositionMarketFactoryTest is Test {
         address pool = propositionMarketFactory.predictDeterministicAddress(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertNotEq(pool, address(0));
@@ -81,14 +77,12 @@ contract PropositionMarketFactoryTest is Test {
         address predictPool = propositionMarketFactory.predictDeterministicAddress(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
         address pool = propositionMarketFactory.createContracts(
             nameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
 
         assertEq(pool, predictPool);
@@ -108,15 +102,13 @@ contract PropositionMarketFactoryTest is Test {
         vm.startPrank(initialOwner, initialOwner);
         TokenSettings[] memory newNameAndSymbolList = new TokenSettings[](1);
 
-        newNameAndSymbolList[0].owner = address(propositionMarketFactory);
         newNameAndSymbolList[0].name = "Test Token One";
         newNameAndSymbolList[0].symbol = "TTO";
 
         address pool = propositionMarketFactory.createContracts(
             newNameAndSymbolList,
             "testtesttesttest",
-            address(testTokenAddress),
-            initialOwner
+            address(testTokenAddress)
         );
         address[] memory addressList = PropositionMarketPool(pool).getOptionList();
 
