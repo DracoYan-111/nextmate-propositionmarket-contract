@@ -190,14 +190,6 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
         }
     }
 
-    function getManagerAddress() public view returns (address) {
-        unchecked {
-            address dataPointer = _bytesToAddressExact(address(this).argsOnERC1967(8, 28));
-            address[] memory fullList = abi.decode(SSTORE2.read(dataPointer), (address[]));
-            return fullList[fullList.length - 2];
-        }
-    }
-
     function getPayTokenAddress() public view returns (IERC20) {
         unchecked {
             address dataPointer = _bytesToAddressExact(address(this).argsOnERC1967(8, 28));
