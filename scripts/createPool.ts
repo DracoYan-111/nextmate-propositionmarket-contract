@@ -13,12 +13,10 @@ async function main() {
 
   const tokenSettings: TokenSettingsStruct[] = [
     {
-      owner: factory,
       name: 'love blackpink',
       symbol: 'BLACK',
     },
     {
-      owner: factory,
       name: 'love bts',
       symbol: 'BTS',
     },

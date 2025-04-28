@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 import {TestToken} from "../../src/PropositionMarket/utils/TestToken.sol";
-import {IPropositionMarketPool} from "../../src/PropositionMarket/interfaces/IPropositionMarketPool.sol";
+import {IPropositionMarketPool, IPropositionMarketPool_Def} from "../../src/PropositionMarket/interfaces/IPropositionMarketPool.sol";
 import {PropositionMarketToken, ERC20, Ownable} from "../../src/PropositionMarket/PropositionMarketToken.sol";
 import {IPropositionMarketToken, IPropositionMarketPool_Def, PropositionMarketPool} from "../../src/PropositionMarket/PropositionMarketPool.sol";
 import {PropositionMarketFactory, FactorySettings, TokenSettings, MarketSettings} from "../../src/PropositionMarket/PropositionMarketFactory.sol";
@@ -249,6 +249,42 @@ contract PropositionMarketPoolTest is Test {
         PropositionMarketPool pool = test_buy();
         address[] memory tokenAddressList = pool.getOptionList();
 
+        // Mint and approve USDT
+        testTokenAddress.mint(initialOwner, 100 ether);
+        testTokenAddress.approve(address(pool), 100 ether);
+
+        // First buy some tokens to sell later
+        uint256 buyTokenAmount = 5 ether;
+
+        // 计算购买指定数量代币所需的USDT金额（包含平台费用）
+        uint256 buyTokenPrice = pool.getExecutionPrice(tokenAddressList[0], int256(buyTokenAmount));
+        uint256 baseUsdtAmount = buyTokenPrice.mulWad(buyTokenAmount);
+        uint256 platformFeeAmount = baseUsdtAmount.mulWad(pool.getPlatformFee());
+        uint256 totalUsdtNeeded = baseUsdtAmount.rawAdd(platformFeeAmount);
+
+        // 记录买入前的代币余额
+        uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+
+        // 使用带有滑点保护的buy方法
+        pool.buy(
+            IPropositionMarketToken(tokenAddressList[0]),
+            buyTokenAmount,
+            totalUsdtNeeded.rawAdd(1 ether), // 额外提供一些USDT作为缓冲
+            buyTokenAmount.mulWad(0.99 ether), // 设置minTokenReceived为请求数量的99%
+            block.timestamp + 3600
+        );
+
+        // 计算获得的代币数量
+        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) -
+            tokenBalanceBefore;
+
+        // Record balances before selling
+        uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
+
+        // 其他记录不需要了
+        // uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        // uint256 platformFeeBefore = pool.totalPlatformFee();
+        // uint256 optionTvlBefore = pool.optionTvl(tokenAddressList[0]);
         uint256 tokenBalance = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
 
         // Check pool's USDT balance before selling
@@ -299,6 +335,278 @@ contract PropositionMarketPoolTest is Test {
         // Check platform fee and TVL
         // uint256 platformFeeAfter = pool.totalPlatformFee();
         // uint256 feeCollected = platformFeeAfter - platformFeeBefore;
+    }
+
+    /**
+     * @dev Tests the buy function with slippage protection that fails.
+     */
+    function test_buyWithSlippageFailed() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        PropositionMarketPool pool = PropositionMarketPool(
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
+        );
+
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        // Mint and approve USDT
+        testTokenAddress.mint(initialOwner, 100 ether);
+        testTokenAddress.approve(address(pool), 100 ether);
+
+        // 提供USDT金额
+        uint256 usdtProvided = 2 ether;
+
+        // 设置一个很高的最小代币接收量，确保会触发滑点保护
+        uint256 minTokenReceived = 1000 ether;
+
+        // 获取大致可以购买的代币数量
+        (uint256 approxTokenAmount, ) = pool.getApproximatePrice(
+            tokenAddressList[0],
+            usdtProvided.rawSub(usdtProvided.mulWad(pool.getPlatformFee())),
+            1e9,
+            50
+        );
+
+        // 预期会因为滑点保护失败而回滚，并且验证错误参数
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IPropositionMarketPool_Def.SlippageFailed.selector,
+                approxTokenAmount,
+                minTokenReceived
+            )
+        );
+
+        pool.buy(
+            IPropositionMarketToken(tokenAddressList[0]),
+            approxTokenAmount, // 使用计算出的预期代币数量
+            usdtProvided,
+            minTokenReceived, // 设置很高的最小接收量
+            block.timestamp + 3600 // 过期时间
+        );
+    }
+
+    /**
+     * @dev Tests the buy function with slippage protection that succeeds despite price discrepancy.
+     */
+    function test_buyWithSlippageSucceeded() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        PropositionMarketPool pool = PropositionMarketPool(
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
+        );
+
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        // Mint and approve USDT
+        testTokenAddress.mint(initialOwner, 100 ether);
+        testTokenAddress.approve(address(pool), 100 ether);
+
+        // 提供USDT金额
+        uint256 usdtProvided = 2 ether;
+
+        // 获取大致可以购买的代币数量
+        (uint256 approxTokenAmount, ) = pool.getApproximatePrice(
+            tokenAddressList[0],
+            usdtProvided.rawSub(usdtProvided.mulWad(pool.getPlatformFee())),
+            1e9,
+            50
+        );
+
+        // 设置一个略低于预期数量的最小接收量，确保在可接受的滑点范围内
+        uint256 minTokenReceived = approxTokenAmount.mulWad(0.95 ether); // 允许5%的滑点
+
+        // 请求购买的金额故意设置为稍大于最小接收量，但小于预期值
+        // 这样模拟了实际执行价格与预估价格有偏差的情况
+        uint256 requestTokenAmount = minTokenReceived.rawAdd(1 ether); // 请求略高于最小接收量的值
+
+        // 记录交易前的余额
+        uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
+
+        // 执行购买，预期应该成功（尽管获得的代币可能比请求的少，但会多于最小接收量）
+        pool.buy(
+            IPropositionMarketToken(tokenAddressList[0]),
+            requestTokenAmount, // 请求购买金额大于最小接收量
+            usdtProvided,
+            minTokenReceived, // 最小接收量
+            block.timestamp + 3600
+        );
+
+        // 验证交易成功并获得了代币
+        uint256 tokenBalanceAfter = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 usdtBalanceAfter = testTokenAddress.balanceOf(initialOwner);
+        uint256 tokenReceived = tokenBalanceAfter - tokenBalanceBefore;
+        uint256 usdtSpent = usdtBalanceBefore - usdtBalanceAfter;
+
+        // 输出实际值，帮助调试
+        // console.log("Requested token amount:", requestTokenAmount);
+        // console.log("Estimated token amount:", approxTokenAmount);
+        // console.log("Minimum token required:", minTokenReceived);
+        // console.log("Actually received tokens:", tokenReceived);
+        // console.log("USDT spent:", usdtSpent);
+
+        // 验证：
+        // 1. 收到的代币数量大于等于最小接收量（滑点保护有效）
+        assertGe(tokenReceived, minTokenReceived, "Received token amount should be >= minTokenReceived");
+
+        // 2. 收到的代币可能小于请求的数量（因为有价格偏差）
+        // 但一定小于等于预估可获得的最大数量
+        assertLe(tokenReceived, requestTokenAmount, "Received token amount should be <= requestTokenAmount");
+    }
+
+    function test_sellWithSlippageFailed() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        PropositionMarketPool pool = PropositionMarketPool(
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
+        );
+
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        // Mint and approve USDT
+        testTokenAddress.mint(initialOwner, 100 ether);
+        testTokenAddress.approve(address(pool), 100 ether);
+
+        // 先购买一些代币
+        uint256 buyTokenAmount = 5 ether;
+
+        // 计算购买指定数量代币所需的USDT金额（包含平台费用）
+        uint256 buyTokenPrice = pool.getExecutionPrice(tokenAddressList[0], int256(buyTokenAmount));
+        uint256 baseUsdtAmount = buyTokenPrice.mulWad(buyTokenAmount);
+        uint256 platformFeeAmount = baseUsdtAmount.mulWad(pool.getPlatformFee());
+        uint256 totalUsdtNeeded = baseUsdtAmount.rawAdd(platformFeeAmount);
+
+        // 记录买入前的代币余额
+        uint256 buyTokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+
+        // 使用带有滑点保护的buy方法
+        pool.buy(
+            IPropositionMarketToken(tokenAddressList[0]),
+            buyTokenAmount,
+            totalUsdtNeeded.rawAdd(1 ether), // 额外提供一些USDT作为缓冲
+            buyTokenAmount.mulWad(0.99 ether), // 设置minTokenReceived为请求数量的99%
+            block.timestamp + 3600
+        );
+
+        // 计算获得的代币数量
+        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) -
+            buyTokenBalanceBefore;
+
+        // 准备卖出所有代币
+        uint256 tokensToSell = tokensReceived;
+        IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokensToSell);
+
+        // 计算预期可以获得的USDT金额
+        uint256 sellTokenPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
+        uint256 expectedUsdtAmount = sellTokenPrice.mulWad(tokensToSell);
+        uint256 platformFee = expectedUsdtAmount.mulWad(pool.getPlatformFee());
+        uint256 expectedUsdtNetAmount = expectedUsdtAmount.rawSub(platformFee);
+
+        // 设置一个高于预期金额的最小USDT接收量，确保会触发滑点保护
+        uint256 minUsdtReceived = expectedUsdtNetAmount.rawAdd(1 ether);
+
+        // 预期会因为滑点保护失败而回滚，并且验证错误参数
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IPropositionMarketPool_Def.SlippageFailed.selector,
+                expectedUsdtNetAmount,
+                minUsdtReceived
+            )
+        );
+
+        pool.sell(
+            IPropositionMarketToken(tokenAddressList[0]),
+            tokensToSell,
+            minUsdtReceived, // 设置很高的最小接收量
+            block.timestamp + 3600 // 过期时间
+        );
+    }
+
+    /**
+     * @dev Tests the sell function with slippage protection that succeeds despite price discrepancy.
+     */
+    function test_sellWithSlippageSucceeded() public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        PropositionMarketPool pool = PropositionMarketPool(
+            propositionMarketFactory.createContracts(nameAndSymbolList, "testtesttesttest", address(testTokenAddress))
+        );
+
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        // Mint and approve USDT
+        testTokenAddress.mint(initialOwner, 100 ether);
+        testTokenAddress.approve(address(pool), 100 ether);
+
+        // 先购买一些代币
+        uint256 buyTokenAmount = 5 ether;
+
+        // 计算购买指定数量代币所需的USDT金额（包含平台费用）
+        uint256 buyTokenPrice = pool.getExecutionPrice(tokenAddressList[0], int256(buyTokenAmount));
+        uint256 baseUsdtAmount = buyTokenPrice.mulWad(buyTokenAmount);
+        uint256 platformFeeAmount = baseUsdtAmount.mulWad(pool.getPlatformFee());
+        uint256 totalUsdtNeeded = baseUsdtAmount.rawAdd(platformFeeAmount);
+
+        // 记录买入前的代币余额
+        uint256 buyTokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+
+        // 使用带有滑点保护的buy方法
+        pool.buy(
+            IPropositionMarketToken(tokenAddressList[0]),
+            buyTokenAmount,
+            totalUsdtNeeded.rawAdd(1 ether), // 额外提供一些USDT作为缓冲
+            buyTokenAmount.mulWad(0.99 ether), // 设置minTokenReceived为请求数量的99%
+            block.timestamp + 3600
+        );
+
+        // 计算获得的代币数量
+        uint256 tokensReceived = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner) -
+            buyTokenBalanceBefore;
+
+        // 准备卖出所有代币
+        uint256 tokensToSell = tokensReceived;
+        IPropositionMarketToken(tokenAddressList[0]).approve(address(pool), tokensToSell);
+
+        // 计算预期可以获得的USDT金额
+        uint256 sellTokenPrice = pool.getExecutionPrice(tokenAddressList[0], -int256(tokensToSell));
+        uint256 expectedUsdtAmount = sellTokenPrice.mulWad(tokensToSell);
+        uint256 platformFee = expectedUsdtAmount.mulWad(pool.getPlatformFee());
+        uint256 expectedUsdtNetAmount = expectedUsdtAmount.rawSub(platformFee);
+
+        // 设置一个低于预期金额的最小USDT接收量，确保在可接受的滑点范围内
+        uint256 minUsdtReceived = expectedUsdtNetAmount.mulWad(0.95 ether); // 允许5%的滑点
+
+        // 记录交易前的余额
+        uint256 tokenBalanceBefore = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 usdtBalanceBefore = testTokenAddress.balanceOf(initialOwner);
+
+        // 执行卖出，预期应该成功（尽管获得的USDT可能有所不同，但会多于最小接收量）
+        pool.sell(
+            IPropositionMarketToken(tokenAddressList[0]),
+            tokensToSell,
+            minUsdtReceived, // 最小接收量
+            block.timestamp + 3600
+        );
+
+        // 验证交易成功并获得了USDT
+        uint256 tokenBalanceAfter = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 usdtBalanceAfter = testTokenAddress.balanceOf(initialOwner);
+        uint256 tokensSold = tokenBalanceBefore - tokenBalanceAfter;
+        uint256 usdtReceived = usdtBalanceAfter - usdtBalanceBefore;
+
+        // 验证：
+        // 1. 卖出的代币数量等于计划卖出的数量
+        assertEq(tokensSold, tokensToSell, "Sold token amount should match the requested amount");
+
+        // 2. 收到的USDT金额大于等于最小接收量（滑点保护有效）
+        assertGe(usdtReceived, minUsdtReceived, "Received USDT amount should be >= minUsdtReceived");
+
+        // 3. 收到的USDT金额应该接近预期金额
+        assertLe(
+            usdtReceived,
+            expectedUsdtNetAmount.rawAdd(expectedUsdtNetAmount.mulWad(0.01 ether)),
+            "Received USDT amount should be close to expected"
+        );
     }
 
     function test_sell_slippage_revert() public {
