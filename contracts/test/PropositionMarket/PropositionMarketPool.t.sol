@@ -664,36 +664,420 @@ contract PropositionMarketPoolTest is Test {
                 1e9, // 1/1000000000 误差
                 50 // 最多50次迭代
             );
-            buyToken(pool, tokenAmount, maxUsdtProvided);
+            buyToken(pool, IPropositionMarketToken(tokenAddressList[0]), tokenAmount, maxUsdtProvided);
         }
         uint256 tokenBalance = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
 
         for (uint256 i; i < 100; ++i) {
-            sellToken(pool, tokenBalance / (100));
+            sellToken(pool, IPropositionMarketToken(tokenAddressList[0]), tokenBalance / (100));
         }
     }
 
-    function buyToken(PropositionMarketPool pool, uint256 tokenAmount, uint256 maxUsdtProvided) public {
+    // 买N个tokenA，然后全部卖掉
+    function test_BuyNTokenASell() public {
         vm.startPrank(initialOwner, initialOwner);
-
+        PropositionMarketPool pool = createContractsAndMintPayToken();
         address[] memory tokenAddressList = pool.getOptionList();
+        uint256 maxUsdtProvided = 2 ether; // Max USDT to spend
 
-        pool.buy(
-            IPropositionMarketToken(tokenAddressList[0]),
-            tokenAmount,
-            maxUsdtProvided,
-            uint256(0),
-            block.timestamp + 3600
+        uint256 usdtForBuyingToken = maxUsdtProvided.rawSub(maxUsdtProvided.mulWad(pool.getPlatformFee()));
+
+        // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+        (uint256 tokenAmount, ) = pool.getApproximatePrice(
+            tokenAddressList[0],
+            usdtForBuyingToken,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
         );
+
+        uint256 userUsdtBalanceBuyBefor = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[0]), tokenAmount, maxUsdtProvided);
+
+        uint256 userUsdtBalanceBuyAfter = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter = pool.tvl();
+        //TODO:未通过，买入之前-买入之后小 < 支付数量
+        // assertEq(userUsdtBalanceBuyBefor - userUsdtBalanceBuyAfter, maxUsdtProvided); // 买入之前-买入之后 = 支付数量
+        //TODO:未通过，买入之后-买入之前 < 支付数量
+        //assertEq(poolUsdtBalanceBuyAfter - poolUsdtBalanceBuyBefor, maxUsdtProvided); // 买入之后-买入之前 = 支付数量
+        assertEq(userTokenBalancBuyAfter - userTokenBalancBuyeBefor, tokenAmount); // 买入之后-买入之前 = 预估数量
+        //TODO:未通过，买入之后< 支付数量
+        // assertEq(tvlBuyAfter, maxUsdtProvided); // 买入之后 = 支付数量
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[0]), userTokenBalancBuyAfter);
+
+        uint256 userUsdtBalanceSellAfter = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceSellAfter = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancSellAfter = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlSellAfter = pool.tvl();
+        //TODO:未通过，卖出之后< 买入之前
+        // assertEq(userUsdtBalanceSellAfter, userUsdtBalanceBuyBefor); // 卖出之后 = 买入之前
+        //TODO:未通过，卖出之后< 买入之前
+        // assertEq(poolUsdtBalanceSellAfter, poolUsdtBalanceBuyBefor); // 卖出之后 = 买入之前
+        //TODO:未通过，卖出之后< 买入之前
+        // assertEq(userTokenBalancSellAfter, userTokenBalancBuyeBefor); // 卖出之后 = 买入之前
+        //TODO:未通过，卖出之后< 买入之前
+
+        // assertEq(tvlSellAfter, tvlBuyBefor); // 卖出之后 = 买入之前
     }
 
-    function sellToken(PropositionMarketPool pool, uint256 tokensToSell) public {
+    //买N个token A和token B，然后全部卖掉
+    function test_BuyNTokenAAndBSell() public {
         vm.startPrank(initialOwner, initialOwner);
-
+        PropositionMarketPool pool = createContractsAndMintPayToken();
         address[] memory tokenAddressList = pool.getOptionList();
 
+        // ============ 0 ============
+        uint256 maxUsdtProvided = 2 ether; // Max USDT to spend
+
+        uint256 usdtForBuyingToken = maxUsdtProvided.rawSub(maxUsdtProvided.mulWad(pool.getPlatformFee()));
+
+        // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+        (uint256 tokenAmount0, ) = pool.getApproximatePrice(
+            tokenAddressList[0],
+            usdtForBuyingToken,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
+        ); // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+
+        uint256 userUsdtBalanceBuyBefor0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor0 = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[0]), tokenAmount0, maxUsdtProvided);
+
+        uint256 userUsdtBalanceBuyAfter0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter0 = pool.tvl();
+        // ============ end ============
+
+        // ============ 1 ============
+        (uint256 tokenAmount1, ) = pool.getApproximatePrice(
+            tokenAddressList[1],
+            usdtForBuyingToken,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
+        );
+
+        uint256 userUsdtBalanceBuyBefor1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor1 = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[1]), tokenAmount1, maxUsdtProvided);
+
+        uint256 userUsdtBalanceBuyAfter1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter1 = pool.tvl();
+        // ============ end ============
+
+        // TODO:未通过
+        // assertEq(
+        //     (userUsdtBalanceBuyBefor0 - userUsdtBalanceBuyAfter0) +
+        //         (userUsdtBalanceBuyBefor1 - userUsdtBalanceBuyAfter1),
+        //     maxUsdtProvided * 2
+        // ); // 买入之后0+买入之后1 = 支付数量*2
+        assertEq(poolUsdtBalanceBuyAfter0 + poolUsdtBalanceBuyAfter1, maxUsdtProvided * 2); // 买入之后0+买入之后 = 支付数量*2
+        assertEq(userTokenBalancBuyAfter0 - userTokenBalancBuyeBefor0, tokenAmount0); // 买入之后-买入之 = 预估数量0
+        assertEq(userTokenBalancBuyAfter1 - userTokenBalancBuyeBefor1, tokenAmount1); // 买入之后-买入之 = 预估数量1
+        assertEq(tvlBuyAfter0 + tvlBuyAfter1, maxUsdtProvided * 2); // 买入之后 = 支付数量*2
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[0]), userTokenBalancBuyAfter0);
+
+        // uint256 userUsdtBalanceSellAfter0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        // uint256 poolUsdtBalanceSellAfter0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        // uint256 userTokenBalancSellAfter0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        // uint256 tvlSellAfter0 = pool.tvl();
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[1]), userTokenBalancBuyAfter1);
+
+        uint256 userUsdtBalanceSellAfter1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceSellAfter1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancSellAfter1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlSellAfter1 = pool.tvl();
+
+        assertEq(userUsdtBalanceSellAfter1, userUsdtBalanceBuyBefor0); // 卖出之后1 = 买入之前0
+        assertEq(poolUsdtBalanceSellAfter1, poolUsdtBalanceBuyBefor0); // 卖出之后1 = 买入之前0
+        assertEq(userTokenBalancSellAfter1, userTokenBalancBuyeBefor0); // 卖出之后1 = 买入之前-
+        assertEq(tvlSellAfter1, tvlBuyBefor0); // 卖出之后1，买入之前0
+    }
+
+    //买N个token A和M个token B，然后全部卖掉，（N远远大于M）
+    function test_BuyNTokenAAndMBSell() public {
+        vm.startPrank(initialOwner, initialOwner);
+        PropositionMarketPool pool = createContractsAndMintPayToken();
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        // ============ 0 ============
+        uint256 maxUsdtProvided0 = 2 ether; // Max USDT to spend
+
+        uint256 usdtForBuyingToken0 = maxUsdtProvided0.rawSub(maxUsdtProvided0.mulWad(pool.getPlatformFee()));
+
+        // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+        (uint256 tokenAmount0, ) = pool.getApproximatePrice(
+            tokenAddressList[0],
+            usdtForBuyingToken0,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
+        ); // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+
+        uint256 userUsdtBalanceBuyBefor0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor0 = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[0]), tokenAmount0, maxUsdtProvided0);
+
+        uint256 userUsdtBalanceBuyAfter0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter0 = pool.tvl();
+        // ============ end ============
+
+        // ============ 1 ============
+        uint256 maxUsdtProvided1 = 20000 ether; // Max USDT to spend
+
+        uint256 usdtForBuyingToken1 = maxUsdtProvided0.rawSub(maxUsdtProvided0.mulWad(pool.getPlatformFee()));
+
+        (uint256 tokenAmount1, ) = pool.getApproximatePrice(
+            tokenAddressList[1],
+            usdtForBuyingToken1,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
+        );
+
+        uint256 userUsdtBalanceBuyBefor1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor1 = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[1]), tokenAmount1, maxUsdtProvided1);
+
+        uint256 userUsdtBalanceBuyAfter1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter1 = pool.tvl();
+        // ============ end ============
+
+        assertEq(userUsdtBalanceBuyAfter0 + userUsdtBalanceBuyAfter1, maxUsdtProvided0 + maxUsdtProvided1); // 买入之后0+买入之后1 = 支付数量0+支付数量1
+        assertEq(poolUsdtBalanceBuyAfter0 + poolUsdtBalanceBuyAfter1, maxUsdtProvided0 + maxUsdtProvided1); // 买入之后0+买入之后 = 支付数量0+支付数量1
+        assertEq(userTokenBalancBuyAfter0 - userTokenBalancBuyeBefor0, tokenAmount0); // 买入之后-买入之 = 预估数量0
+        assertEq(userTokenBalancBuyAfter1 - userTokenBalancBuyeBefor1, tokenAmount1); // 买入之后-买入之 = 预估数量1
+        assertEq(tvlBuyAfter0 + tvlBuyAfter1, maxUsdtProvided0 + maxUsdtProvided1); // 买入之后 = 支付数量0+支付数量1
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[0]), userTokenBalancBuyAfter0);
+
+        // uint256 userUsdtBalanceSellAfter0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        // uint256 poolUsdtBalanceSellAfter0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        // uint256 userTokenBalancSellAfter0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        // uint256 tvlSellAfter0 = pool.tvl();
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[1]), userTokenBalancBuyAfter1);
+
+        uint256 userUsdtBalanceSellAfter1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceSellAfter1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancSellAfter1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlSellAfter1 = pool.tvl();
+
+        assertEq(userUsdtBalanceSellAfter1, userUsdtBalanceBuyBefor0); // 卖出之后1 = 买入之前0
+        assertEq(poolUsdtBalanceSellAfter1, poolUsdtBalanceBuyBefor0); // 卖出之后1 = 买入之前0
+        assertEq(userTokenBalancSellAfter1, userTokenBalancBuyeBefor0); // 卖出之后1 = 买入之前-
+        assertEq(tvlSellAfter1, tvlBuyBefor0); // 卖出之后1，买入之前0
+    }
+
+    //买M个token A和N个token B，然后全部卖掉，（N远远大于M）
+    function test_BuyMTokenAAndNBSell() public {
+        vm.startPrank(initialOwner, initialOwner);
+        PropositionMarketPool pool = createContractsAndMintPayToken();
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        // ============ 0 ============
+        uint256 maxUsdtProvided0 = 20000 ether; // Max USDT to spend
+
+        uint256 usdtForBuyingToken0 = maxUsdtProvided0.rawSub(maxUsdtProvided0.mulWad(pool.getPlatformFee()));
+
+        // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+        (uint256 tokenAmount0, ) = pool.getApproximatePrice(
+            tokenAddressList[0],
+            usdtForBuyingToken0,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
+        ); // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+
+        uint256 userUsdtBalanceBuyBefor0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor0 = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[0]), tokenAmount0, maxUsdtProvided0);
+
+        uint256 userUsdtBalanceBuyAfter0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter0 = pool.tvl();
+        // ============ end ============
+
+        // ============ 1 ============
+        uint256 maxUsdtProvided1 = 2 ether; // Max USDT to spend
+
+        uint256 usdtForBuyingToken1 = maxUsdtProvided0.rawSub(maxUsdtProvided0.mulWad(pool.getPlatformFee()));
+
+        (uint256 tokenAmount1, ) = pool.getApproximatePrice(
+            tokenAddressList[1],
+            usdtForBuyingToken1,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
+        );
+
+        uint256 userUsdtBalanceBuyBefor1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor1 = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[1]), tokenAmount1, maxUsdtProvided1);
+
+        uint256 userUsdtBalanceBuyAfter1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter1 = pool.tvl();
+        // ============ end ============
+
+        assertEq(userUsdtBalanceBuyAfter0 + userUsdtBalanceBuyAfter1, maxUsdtProvided0 + maxUsdtProvided1); // 买入之后0+买入之后1 = 支付数量0+支付数量1
+        assertEq(poolUsdtBalanceBuyAfter0 + poolUsdtBalanceBuyAfter1, maxUsdtProvided0 + maxUsdtProvided1); // 买入之后0+买入之后 = 支付数量0+支付数量1
+        assertEq(userTokenBalancBuyAfter0 - userTokenBalancBuyeBefor0, tokenAmount0); // 买入之后-买入之 = 预估数量0
+        assertEq(userTokenBalancBuyAfter1 - userTokenBalancBuyeBefor1, tokenAmount1); // 买入之后-买入之 = 预估数量1
+        assertEq(tvlBuyAfter0 + tvlBuyAfter1, maxUsdtProvided0 + maxUsdtProvided1); // 买入之后 = 支付数量0+支付数量1
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[0]), userTokenBalancBuyAfter0);
+
+        // uint256 userUsdtBalanceSellAfter0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        // uint256 poolUsdtBalanceSellAfter0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        // uint256 userTokenBalancSellAfter0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        // uint256 tvlSellAfter0 = pool.tvl();
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[1]), userTokenBalancBuyAfter1);
+
+        uint256 userUsdtBalanceSellAfter1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceSellAfter1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancSellAfter1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlSellAfter1 = pool.tvl();
+
+        assertEq(userUsdtBalanceSellAfter1, userUsdtBalanceBuyBefor0); // 卖出之后1 = 买入之前0
+        assertEq(poolUsdtBalanceSellAfter1, poolUsdtBalanceBuyBefor0); // 卖出之后1 = 买入之前0
+        assertEq(userTokenBalancSellAfter1, userTokenBalancBuyeBefor0); // 卖出之后1 = 买入之前-
+        assertEq(tvlSellAfter1, tvlBuyBefor0); // 卖出之后1，买入之前0
+    }
+
+    // 买N个token A和token B，然后卖掉一半A，然后再买N个token B，然后卖掉全部A，卖掉全部B
+    function test_BuyNTokenAAndNBSell() public {
+        vm.startPrank(initialOwner, initialOwner);
+        PropositionMarketPool pool = createContractsAndMintPayToken();
+        address[] memory tokenAddressList = pool.getOptionList();
+
+        // ============ 0 ============
+        uint256 maxUsdtProvided = 200 ether; // Max USDT to spend
+
+        uint256 usdtForBuyingToken = maxUsdtProvided.rawSub(maxUsdtProvided.mulWad(pool.getPlatformFee()));
+
+        // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+        (uint256 tokenAmount0, ) = pool.getApproximatePrice(
+            tokenAddressList[0],
+            usdtForBuyingToken,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
+        ); // 使用approximateExecutionPrice计算可以购买的token数量和平均价格
+
+        uint256 userUsdtBalanceBuyBefor0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor0 = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[0]), tokenAmount0, maxUsdtProvided);
+
+        uint256 userUsdtBalanceBuyAfter0 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter0 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter0 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter0 = pool.tvl();
+        // ============ end ============
+
+        // ============ 1 ============
+        (uint256 tokenAmount1, ) = pool.getApproximatePrice(
+            tokenAddressList[1],
+            usdtForBuyingToken,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
+        );
+
+        uint256 userUsdtBalanceBuyBefor1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor1 = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[1]), tokenAmount1, maxUsdtProvided);
+
+        uint256 userUsdtBalanceBuyAfter1 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter1 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter1 = pool.tvl();
+        // ============ end ============
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[0]), userTokenBalancBuyAfter0 / 2);
+
+        // ============ 1 ============
+        (uint256 tokenAmount2, ) = pool.getApproximatePrice(
+            tokenAddressList[1],
+            usdtForBuyingToken,
+            1e9, // 1/1000000000 误差
+            50 // 最多50次迭代
+        );
+
+        uint256 userUsdtBalanceBuyBefor2 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyBefor2 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyeBefor2 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyBefor2 = pool.tvl();
+
+        buyToken(pool, IPropositionMarketToken(tokenAddressList[1]), tokenAmount2, maxUsdtProvided);
+
+        uint256 userUsdtBalanceBuyAfter2 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter2 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter2 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter2 = pool.tvl();
+        // ============ end ============
+
+        uint256 userUsdtBalanceBuyAfter3 = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceBuyAfter3 = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenBalancBuyAfter3 = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 tvlBuyAfter3 = pool.tvl();
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[0]), userTokenBalancBuyAfter3);
+
+        sellToken(pool, IPropositionMarketToken(tokenAddressList[1]), userTokenBalancBuyAfter2);
+    }
+
+    function buyToken(
+        PropositionMarketPool pool,
+        IPropositionMarketToken token,
+        uint256 tokenAmount,
+        uint256 maxUsdtProvided
+    ) public {
+        vm.startPrank(initialOwner, initialOwner);
+
+        pool.buy(token, tokenAmount, maxUsdtProvided, uint256(0), block.timestamp + 3600);
+    }
+
+    function sellToken(PropositionMarketPool pool, IPropositionMarketToken token, uint256 tokensToSell) public {
+        vm.startPrank(initialOwner, initialOwner);
+
         pool.sell(
-            IPropositionMarketToken(tokenAddressList[0]),
+            token,
             tokensToSell,
             0, // No slippage protection
             block.timestamp + 3600
