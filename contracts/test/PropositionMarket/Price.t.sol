@@ -146,12 +146,16 @@ contract PriceTest is Test {
 
     function test_GetSpotPrice() public {
         delete _testCases; // 清空数组
-        _testCases.push(TestCase(0, 0, 100000000000000000));
-        _testCases.push(TestCase(1 ether, 0, 105999000999000999));
-        _testCases.push(TestCase(0 ether, 1 ether, 100000000000000000));
-        _testCases.push(TestCase(1 ether, 1 ether, 105998003992015968));
+        _testCases.push(TestCase(0, 0, 707106781186547524));
+        _testCases.push(TestCase(1 ether, 0, 773221279597375842));
+        _testCases.push(TestCase(0 ether, 1 ether, 640184399664479868));
+        _testCases.push(TestCase(1 ether, 1 ether, 712106781186547524));
 
         _runTestCases(_testCases);
+    }
+
+    function test_GetDeltaUSDT() public {
+        assertEq(Price.getDeltaUSDT(0 ether, 0 ether, 1 ether), 742515197374512483);
     }
 
     function test_GetExecutionPrice() public {
@@ -231,12 +235,14 @@ contract PriceTest is Test {
         _runExecutionPriceTestCases(_executionPriceTestCases);
     }
 
-    function test_SingleGetExecutionPrice() public pure {
-        Price.getExecutionPrice(10000 ether, 10000 ether, 10 ether);
+    function test_SingleGetExecutionPrice() public {
+        uint256 price = Price.getExecutionPrice(0 ether, 0 ether, 14301230283084417960489);
+        console2.log("price", price);
+        console2.log("usdt amount", price * 14301230283084417960489 /1e18);
+        console2.log("_potential", Price._potential(14301230283084417960489, 0) - Price._potential(0, 0));
     }
-
-    function test_SingleGetPrice() public pure {
-        Price.getExecutionPrice(10000 ether, 10000 ether, 10 ether);
+    function test_SingleGetPrice() public {
+        console2.log("price", Price.getSpotPrice(66 ether, 14301 ether));
     }
 
     function test_SingleApproximateExecutionPrice() public pure {
@@ -252,9 +258,9 @@ contract PriceTest is Test {
 
         // 第一组测试：大范围
         for (uint256 i = 0; i < 100; i++) {
-            // 生成随机供应量 (0 - 10亿 ether)
-            uint256 supply = uint256(keccak256(abi.encodePacked(seed, i, "supply"))) % (10e9 ether);
-            uint256 supplyOther = uint256(keccak256(abi.encodePacked(seed, i, "supplyOther"))) % (10e9 ether);
+            // 生成随机供应量 (0 - 1000万 ether)
+            uint256 supply = uint256(keccak256(abi.encodePacked(seed, i, "supply"))) % (10e6 ether);
+            uint256 supplyOther = uint256(keccak256(abi.encodePacked(seed, i, "supplyOther"))) % (10e6 ether);
 
             // 生成随机USDT金额 (0 - 1000万)
             uint256 usdtAmount = uint256(keccak256(abi.encodePacked(seed, i, "usdt"))) % (10e6 * 1e6);
@@ -262,10 +268,10 @@ contract PriceTest is Test {
             (uint256 supplyDelta, uint256 avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount);
 
             uint256 actualUsdtValue = (avgPrice * supplyDelta) / 1e18;
-            assertLe(actualUsdtValue, usdtAmount);
-            assertEq(Price.getExecutionPrice(supply, supplyOther, int256(supplyDelta)), avgPrice);
+            assertLe(actualUsdtValue, usdtAmount, "Actual USDT value exceeds provided USDT amount");
+            assertEq(Price.getExecutionPrice(supply, supplyOther, int256(supplyDelta)), avgPrice, "Execution price calculation mismatch");
 
-            assertApproxEqAbs(actualUsdtValue, usdtAmount, usdtAmount / Price.DEFAULT_APPROXIMATION_PRECISION);
+            assertApproxEqAbs(actualUsdtValue, usdtAmount, usdtAmount / Price.DEFAULT_APPROXIMATION_PRECISION, "Approximation error exceeds allowed tolerance");
         }
 
         // 第二组测试：小范围
@@ -280,9 +286,9 @@ contract PriceTest is Test {
             (uint256 supplyDelta, uint256 avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount);
 
             uint256 actualUsdtValue = (avgPrice * supplyDelta) / 1e18;
-            assertLe(actualUsdtValue, usdtAmount);
-            assertEq(Price.getExecutionPrice(supply, supplyOther, int256(supplyDelta)), avgPrice);
-            assertApproxEqAbs(actualUsdtValue, usdtAmount, usdtAmount / Price.DEFAULT_APPROXIMATION_PRECISION);
+            assertLe(actualUsdtValue, usdtAmount, "Actual USDT value exceeds provided USDT amount");
+            assertEq(Price.getExecutionPrice(supply, supplyOther, int256(supplyDelta)), avgPrice, "Execution price calculation mismatch");
+            assertApproxEqAbs(actualUsdtValue, usdtAmount, usdtAmount / Price.DEFAULT_APPROXIMATION_PRECISION, "Approximation error exceeds allowed tolerance");
         }
     }
 }

@@ -9,6 +9,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {UUPSUpgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {SafeCastLib} from "solady/src/utils/SafeCastLib.sol";
+import {console} from "forge-std/console.sol";
 
 import {IPropositionMarketFactory} from "./interfaces/IPropositionMarketFactory.sol";
 import {IPropositionMarketPool_Def} from "./interfaces/IPropositionMarketPool.sol";
@@ -19,6 +21,8 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
     using LibClone for *;
     using LibString for *;
     using FixedPointMathLib for *;
+    using SafeCastLib for uint256;
+    using SafeCastLib for int256;
 
     uint256 public totalPlatformFee;
     bool public paused;
@@ -63,8 +67,8 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
 
-        uint256 tokenPrice = tokenSupply.getExecutionPrice(supplyOther, int256(tokenAmount));
-        uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
+        uint256 usdtAmount = tokenSupply.getDeltaUSDT(supplyOther, int256(tokenAmount)).toUint256();
+        uint256 tokenPrice = usdtAmount.divWad(tokenAmount);
         uint256 usdtNetAmount = usdtAmount.divWad(1 ether.rawSub(getPlatformFee()));
 
         // check usdt provided
@@ -79,7 +83,7 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
             if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
 
             // Update values with new token amount
-            usdtAmount = tokenPrice.mulWad(tokenAmount);
+            usdtAmount = Price.getDeltaUSDT(tokenSupply, supplyOther, int256(tokenAmount)).toUint256();
             usdtNetAmount = usdtAmount.divWad(1 ether.rawSub(getPlatformFee()));
         }
 
@@ -115,8 +119,9 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
     ) external nonReentrant whenNotPaused timeCheck(expireTimestamp) tokenAmountCheck(tokenAmount) {
         // calculate price and amount
         (uint256 tokenSupply, uint256 supplyOther) = _getSupplies(address(token));
-        uint256 tokenPrice = tokenSupply.getExecutionPrice(supplyOther, -int256(tokenAmount));
-        uint256 usdtAmount = tokenPrice.mulWad(tokenAmount);
+        int256 deltaUSDT = tokenSupply.getDeltaUSDT(supplyOther, -int256(tokenAmount));
+        uint256 usdtAmount = (-deltaUSDT).toUint256();
+        uint256 tokenPrice = usdtAmount.divWad(tokenAmount);
 
         // calculate platform fee
         uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
@@ -210,6 +215,11 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
     function getExecutionPrice(address token, int256 amountChanged) public view returns (uint256) {
         (uint256 supply, uint256 supplyOther) = _getSupplies(token);
         return Price.getExecutionPrice(supply, supplyOther, amountChanged);
+    }
+
+    function getUsdtDelta(address token, int256 amountChanged) public view returns (int256) {
+        (uint256 supply, uint256 supplyOther) = _getSupplies(token);
+        return Price.getDeltaUSDT(supply, supplyOther, amountChanged);
     }
 
     function getApproximatePrice(
