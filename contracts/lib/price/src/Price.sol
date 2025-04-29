@@ -3,7 +3,6 @@ pragma solidity ^0.8.23;
 
 import {FixedPointMathLib} from "../../solady/src/utils/FixedPointMathLib.sol";
 import {SafeCastLib} from "../../solady/src/utils/SafeCastLib.sol";
-import {console} from "forge-std/console.sol";
 
 /**
  * @title Price Library
@@ -26,9 +25,9 @@ library Price {
 
     /*────────────────────── CONSTANTS ──────────────────────*/
 
-    uint256 public constant ALPHA = 2 ether;           // α = 2
-    uint256 public constant V     = 5 ether;           // v = 5
-    uint256 public constant K     = 0.005 ether;       // k = 0.005
+    uint256 public constant ALPHA = 2 ether; // α = 2
+    uint256 public constant V = 5 ether; // v = 5
+    uint256 public constant K = 0.005 ether; // k = 0.005
 
     /// @notice Binary‑search控制参数
     uint256 public constant DEFAULT_MAX_ITERATIONS = 30;
@@ -72,20 +71,16 @@ library Price {
         uint256 s2Alpha = s2p.mulWad(s2p);
         uint256 denom = (s1Alpha + s2Alpha).sqrtWad(); // √A
 
-        uint256 firstTerm = s1p.divWad(denom);         // (s₁+v)/√A
-        uint256 sqrtTerm  = K.mulWad(supply.sqrtWad());
+        uint256 firstTerm = s1p.divWad(denom); // (s₁+v)/√A
+        uint256 sqrtTerm = K.mulWad(supply.sqrtWad());
 
         return firstTerm + sqrtTerm;
     }
 
     /// @notice Δs 的平均执行价
-    function getExecutionPrice(
-        uint256 supply,
-        uint256 supplyOther,
-        int256  deltaSupply
-    ) public pure returns (uint256) {
+    function getExecutionPrice(uint256 supply, uint256 supplyOther, int256 deltaSupply) public pure returns (uint256) {
         if (deltaSupply == 0) return getSpotPrice(supply, supplyOther);
-        int256 dF  = getDeltaUSDT(supply, supplyOther, deltaSupply);
+        int256 dF = getDeltaUSDT(supply, supplyOther, deltaSupply);
         int256 avg = dF.sDivWad(deltaSupply);
         if (avg < 0) revert NegativePrice(avg);
         return avg.toUint256();
@@ -96,10 +91,10 @@ library Price {
 
         uint256 newSupply = deltaSupply > 0 ? supply + deltaSupply.toUint256() : supply - (-deltaSupply).toUint256();
 
-        uint256 F0 = _potential(supply,        supplyOther);
-        uint256 F1 = _potential(newSupply,     supplyOther);
+        uint256 F0 = _potential(supply, supplyOther);
+        uint256 F1 = _potential(newSupply, supplyOther);
 
-        int256 dF  = F1.toInt256() - F0.toInt256();
+        int256 dF = F1.toInt256() - F0.toInt256();
         return dF;
     }
 
@@ -118,15 +113,16 @@ library Price {
         int256 precision = (usdtAmount / approxPrecision).toInt256();
         uint256 iterations;
         while (iterations < maxIteration) {
-            uint256 mid   = (lowerBound + upperBound) / 2;
+            uint256 mid = (lowerBound + upperBound) / 2;
             uint256 delta = mid - supply;
 
-            uint256 price      = getExecutionPrice(supply, supplyOther, delta.toInt256());
+            uint256 price = getExecutionPrice(supply, supplyOther, delta.toInt256());
             uint256 totalValue = price.mulWad(delta);
-            int256  diff       = usdtAmount.toInt256() - totalValue.toInt256();
+            int256 diff = usdtAmount.toInt256() - totalValue.toInt256();
 
             if (diff > 0 && diff <= precision) return (delta, price);
-            if (totalValue < usdtAmount) lowerBound = mid; else upperBound = mid;
+            if (totalValue < usdtAmount) lowerBound = mid;
+            else upperBound = mid;
             iterations++;
         }
         revert ApproximationFailed(supply, supplyOther, usdtAmount);
@@ -138,12 +134,13 @@ library Price {
         uint256 supplyOther,
         uint256 usdtAmount
     ) public pure returns (uint256 tokenAmount, uint256 avgPrice) {
-        return approximateExecutionPrice(
-            supply,
-            supplyOther,
-            usdtAmount,
-            DEFAULT_APPROXIMATION_PRECISION,
-            DEFAULT_MAX_ITERATIONS
-        );
+        return
+            approximateExecutionPrice(
+                supply,
+                supplyOther,
+                usdtAmount,
+                DEFAULT_APPROXIMATION_PRECISION,
+                DEFAULT_MAX_ITERATIONS
+            );
     }
 }

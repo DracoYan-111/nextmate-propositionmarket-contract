@@ -314,7 +314,11 @@ contract PropositionMarketPoolTest is Test {
         uint256 payTokenBalanceAfter = pool.getPayTokenAddress().balanceOf(address(initialOwner));
 
         assertEq(tokenBalanceAfter, 0, "Token balance should be reduced by sold amount");
-        assertEq(payTokenBalanceAfter, payTokenBalanceBefore + payTokenAmount, "Pay token balance should increase by the expected amount");
+        assertEq(
+            payTokenBalanceAfter,
+            payTokenBalanceBefore + payTokenAmount,
+            "Pay token balance should increase by the expected amount"
+        );
         // Check TVL change
         uint256 optionTvlAfter = pool.tvl();
 
@@ -696,13 +700,11 @@ contract PropositionMarketPoolTest is Test {
         uint256 poolUsdtBalanceBuyAfter = pool.getPayTokenAddress().balanceOf(address(pool));
         uint256 userTokenBalancBuyAfter = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
         uint256 tvlBuyAfter = pool.tvl();
-        //TODO:未通过，买入之前-买入之后小 < 支付数量
-        // assertEq(userUsdtBalanceBuyBefor - userUsdtBalanceBuyAfter, maxUsdtProvided); // 买入之前-买入之后 = 支付数量
-        //TODO:未通过，买入之后-买入之前 < 支付数量
-        //assertEq(poolUsdtBalanceBuyAfter - poolUsdtBalanceBuyBefor, maxUsdtProvided); // 买入之后-买入之前 = 支付数量
+
+        assertGt(userUsdtBalanceBuyBefor - userUsdtBalanceBuyAfter, maxUsdtProvided.mulWad(0.99 ether)); // 买入之前-买入之后 > 支付数量*0.99
+        assertGt(poolUsdtBalanceBuyAfter - poolUsdtBalanceBuyBefor, maxUsdtProvided.mulWad(0.99 ether)); // 买入之后-买入之前  > 支付数量*0.99
         assertEq(userTokenBalancBuyAfter - userTokenBalancBuyeBefor, tokenAmount); // 买入之后-买入之前 = 预估数量
-        //TODO:未通过，买入之后< 支付数量
-        // assertEq(tvlBuyAfter, maxUsdtProvided); // 买入之后 = 支付数量
+        assertGt(tvlBuyAfter - tvlBuyBefor, maxUsdtProvided.mulWad(0.99 ether)); // 买入之后-买入之前 > 支付数量*0.99
 
         sellToken(pool, IPropositionMarketToken(tokenAddressList[0]), userTokenBalancBuyAfter);
 
@@ -710,15 +712,10 @@ contract PropositionMarketPoolTest is Test {
         uint256 poolUsdtBalanceSellAfter = pool.getPayTokenAddress().balanceOf(address(pool));
         uint256 userTokenBalancSellAfter = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
         uint256 tvlSellAfter = pool.tvl();
-        //TODO:未通过，卖出之后< 买入之前
-        // assertEq(userUsdtBalanceSellAfter, userUsdtBalanceBuyBefor); // 卖出之后 = 买入之前
-        //TODO:未通过，卖出之后< 买入之前
-        // assertEq(poolUsdtBalanceSellAfter, poolUsdtBalanceBuyBefor); // 卖出之后 = 买入之前
-        //TODO:未通过，卖出之后< 买入之前
-        // assertEq(userTokenBalancSellAfter, userTokenBalancBuyeBefor); // 卖出之后 = 买入之前
-        //TODO:未通过，卖出之后< 买入之前
-
-        // assertEq(tvlSellAfter, tvlBuyBefor); // 卖出之后 = 买入之前
+        assertEq(userUsdtBalanceSellAfter, userUsdtBalanceBuyBefor); // 卖出之后 = 买入之前
+        assertEq(poolUsdtBalanceSellAfter, poolUsdtBalanceBuyBefor); // 卖出之后 = 买入之前
+        assertEq(userTokenBalancSellAfter, userTokenBalancBuyeBefor); // 卖出之后 = 买入之前
+        assertEq(tvlSellAfter, tvlBuyBefor); // 卖出之后 = 买入之前
     }
 
     //买N个token A和token B，然后全部卖掉
@@ -766,7 +763,11 @@ contract PropositionMarketPoolTest is Test {
         uint256 userUsdtBalanceDiff = userUsdtBalanceBefore - userUsdtBalanceAfterBuy;
 
         // 验证买入后的状态
-        assertEq(poolUsdtBalanceAfterBuy, userUsdtBalanceDiff, "Pool USDT balance should increase by 2x the provided amount");
+        assertEq(
+            poolUsdtBalanceAfterBuy,
+            userUsdtBalanceDiff,
+            "Pool USDT balance should increase by 2x the provided amount"
+        );
         assertEq(userTokenABalanceAfterBuy, tokenAmount0, "User should receive the expected amount of token A");
         assertEq(userTokenBBalanceAfterBuy, tokenAmount1, "User should receive the expected amount of token B");
         assertEq(tvlAfterBuy, userUsdtBalanceDiff, "TVL should increase by 2x the provided amount");
@@ -784,9 +785,21 @@ contract PropositionMarketPoolTest is Test {
         uint256 tvlAfterSell = pool.tvl();
 
         // 验证卖出后的状态
-        assertEq(userUsdtBalanceAfterSell, userUsdtBalanceBefore, "User USDT balance should return to initial state after selling");
-        assertEq(poolUsdtBalanceAfterSell, poolUsdtBalanceBefore, "Pool USDT balance should return to initial state after selling");
-        assertEq(userTokenABalanceAfterSell, userTokenABalanceBefore, "User token A balance should return to initial state after selling");
+        assertEq(
+            userUsdtBalanceAfterSell,
+            userUsdtBalanceBefore,
+            "User USDT balance should return to initial state after selling"
+        );
+        assertEq(
+            poolUsdtBalanceAfterSell,
+            poolUsdtBalanceBefore,
+            "Pool USDT balance should return to initial state after selling"
+        );
+        assertEq(
+            userTokenABalanceAfterSell,
+            userTokenABalanceBefore,
+            "User token A balance should return to initial state after selling"
+        );
         assertEq(userTokenBBalanceAfterSell, 0, "User token B balance should be zero after selling all tokens");
         assertEq(tvlAfterSell, tvlBefore, "TVL should return to initial state after selling all tokens");
     }
@@ -842,9 +855,9 @@ contract PropositionMarketPoolTest is Test {
         uint256 userTokenBBalanceAfterBuy = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
         uint256 tvlAfterBuy = pool.tvl();
         // ============ 买入后断言校验 ============
-        uint256 userUsdtDiff          = userUsdtBalanceBefore - userUsdtBalanceAfterBuy;
-        uint256 tokenASupply          = IPropositionMarketToken(tokenAddressList[0]).totalSupply();
-        uint256 tokenBSupply          = IPropositionMarketToken(tokenAddressList[1]).totalSupply();
+        uint256 userUsdtDiff = userUsdtBalanceBefore - userUsdtBalanceAfterBuy;
+        uint256 tokenASupply = IPropositionMarketToken(tokenAddressList[0]).totalSupply();
+        uint256 tokenBSupply = IPropositionMarketToken(tokenAddressList[1]).totalSupply();
 
         console.log("Token A supply", tokenASupply);
         console.log("Token B supply", tokenBSupply);
@@ -864,24 +877,34 @@ contract PropositionMarketPoolTest is Test {
         console.log("Pool USDT after selling Token A", pool.getPayTokenAddress().balanceOf(address(pool)));
 
         // ============ 卖出 Token B ============
-        uint256 estimatedUsdtForTokenB = pool.getExecutionPrice(tokenAddressList[1], -int256(userTokenBBalanceAfterBuy));
+        uint256 estimatedUsdtForTokenB = pool.getExecutionPrice(
+            tokenAddressList[1],
+            -int256(userTokenBBalanceAfterBuy)
+        );
         console.log("Estimated USDT return for Token B", estimatedUsdtForTokenB);
 
         sellToken(pool, IPropositionMarketToken(tokenAddressList[1]), userTokenBBalanceAfterBuy);
 
         // ============ 卖出后断言校验 ============
-        uint256 userUsdtBalanceAfterSell     = pool.getPayTokenAddress().balanceOf(initialOwner);
-        uint256 poolUsdtBalanceAfterSell     = pool.getPayTokenAddress().balanceOf(address(pool));
-        uint256 userTokenABalanceAfterSell   = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
-        uint256 userTokenBBalanceAfterSell   = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
-        uint256 tvlAfterSell                 = pool.tvl();
+        uint256 userUsdtBalanceAfterSell = pool.getPayTokenAddress().balanceOf(initialOwner);
+        uint256 poolUsdtBalanceAfterSell = pool.getPayTokenAddress().balanceOf(address(pool));
+        uint256 userTokenABalanceAfterSell = IPropositionMarketToken(tokenAddressList[0]).balanceOf(initialOwner);
+        uint256 userTokenBBalanceAfterSell = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
+        uint256 tvlAfterSell = pool.tvl();
 
         assertEq(userUsdtBalanceAfterSell, userUsdtBalanceBefore, "User USDT balance after sell should equal initial");
-        assertEq(poolUsdtBalanceAfterSell,  poolUsdtBalanceBefore, "Pool USDT balance after sell should equal initial");
-        assertEq(userTokenABalanceAfterSell, userTokenABalanceBefore, "Token A balance after sell should equal initial");
-        assertEq(userTokenBBalanceAfterSell, userTokenBBalanceBefore, "Token B balance after sell should equal initial");
+        assertEq(poolUsdtBalanceAfterSell, poolUsdtBalanceBefore, "Pool USDT balance after sell should equal initial");
+        assertEq(
+            userTokenABalanceAfterSell,
+            userTokenABalanceBefore,
+            "Token A balance after sell should equal initial"
+        );
+        assertEq(
+            userTokenBBalanceAfterSell,
+            userTokenBBalanceBefore,
+            "Token B balance after sell should equal initial"
+        );
         assertEq(tvlAfterSell, tvlBefore, "TVL after sell should equal initial TVL");
-
     }
 
     //买M个token A和N个token B，然后全部卖掉，（N远远大于M）
@@ -975,15 +998,26 @@ contract PropositionMarketPoolTest is Test {
 
         sellToken(pool, IPropositionMarketToken(tokenAddressList[1]), userToken1Balance);
 
-
         uint256 userUsdtBalanceSellAfter1 = pool.getPayTokenAddress().balanceOf(initialOwner);
         uint256 poolUsdtBalanceSellAfter1 = pool.getPayTokenAddress().balanceOf(address(pool));
         uint256 userTokenBalancSellAfter1 = IPropositionMarketToken(tokenAddressList[1]).balanceOf(initialOwner);
         uint256 tvlSellAfter1 = pool.tvl();
 
-        assertEq(userUsdtBalanceSellAfter1, userUsdtBalanceBuyBefor0, "User USDT balance after selling should equal initial balance"); // 卖出之后1 = 买入之前0
-        assertEq(poolUsdtBalanceSellAfter1, poolUsdtBalanceBuyBefor0, "Pool USDT balance after selling should equal initial balance"); // 卖出之后1 = 买入之前0
-        assertEq(userTokenBalancSellAfter1, userTokenBalancBuyeBefor0, "User token balance after selling should equal initial balance"); // 卖出之后1 = 买入之前-
+        assertEq(
+            userUsdtBalanceSellAfter1,
+            userUsdtBalanceBuyBefor0,
+            "User USDT balance after selling should equal initial balance"
+        ); // 卖出之后1 = 买入之前0
+        assertEq(
+            poolUsdtBalanceSellAfter1,
+            poolUsdtBalanceBuyBefor0,
+            "Pool USDT balance after selling should equal initial balance"
+        ); // 卖出之后1 = 买入之前0
+        assertEq(
+            userTokenBalancSellAfter1,
+            userTokenBalancBuyeBefor0,
+            "User token balance after selling should equal initial balance"
+        ); // 卖出之后1 = 买入之前-
         assertEq(tvlSellAfter1, tvlBuyBefor0, "TVL after selling should equal initial TVL"); // 卖出之后1，买入之前0
     }
 

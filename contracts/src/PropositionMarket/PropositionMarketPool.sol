@@ -10,7 +10,6 @@ import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {UUPSUpgradeable, Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {SafeCastLib} from "solady/src/utils/SafeCastLib.sol";
-import {console} from "forge-std/console.sol";
 
 import {IPropositionMarketFactory} from "./interfaces/IPropositionMarketFactory.sol";
 import {IPropositionMarketPool_Def} from "./interfaces/IPropositionMarketPool.sol";
@@ -126,10 +125,10 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
         // calculate platform fee
         uint256 platformFee = usdtAmount.mulWad(getPlatformFee());
         totalPlatformFee += platformFee;
-        uint256 usdtNetAmount = usdtAmount.rawSub(platformFee);
 
         // check minimum received amount
-        if (usdtNetAmount < minUsdtReceived) revert SlippageFailed(usdtNetAmount, minUsdtReceived);
+        if (usdtAmount.rawSub(platformFee) < minUsdtReceived)
+            revert SlippageFailed(usdtAmount.rawSub(platformFee), minUsdtReceived);
 
         // transfer token from sender and burn it
         token.burn(msg.sender, tokenAmount);
@@ -138,7 +137,7 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
         tvl -= usdtAmount;
 
         // transfer usdt to sender
-        if (!getPayTokenAddress().transfer(msg.sender, usdtNetAmount)) revert PaymentFailed();
+        if (!getPayTokenAddress().transfer(msg.sender, usdtAmount.rawSub(platformFee))) revert PaymentFailed();
 
         // emit event
         IPropositionMarketFactory(getFactoryAddress()).emitEventTrade(
@@ -147,7 +146,13 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
             -int256(tokenAmount),
             tokenPrice
         );
-        emit Swap(msg.sender, usdtNetAmount, tokenAmount, address(getPayTokenAddress()), address(token));
+        emit Swap(
+            msg.sender,
+            usdtAmount.rawSub(platformFee),
+            tokenAmount,
+            address(getPayTokenAddress()),
+            address(token)
+        );
     }
 
     function collectPlatformFee(address receiver) external onlyFactory {

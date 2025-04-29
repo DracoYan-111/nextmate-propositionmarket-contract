@@ -13,15 +13,15 @@ async function main() {
 
   const tokenSettings: TokenSettingsStruct[] = [
     {
-      name: 'love blackpink',
+      name: 'love love love blackpink',
       symbol: 'BLACK',
     },
     {
-      name: 'love bts',
+      name: 'love love love bts',
       symbol: 'BTS',
     },
   ];
-  const poolTitle = 'BLACK VS BTS Two';
+  const poolTitle = 'BLACK VS BTS Three';
   const payToken = '0x163aC8C09D41a6Dc90EbF95dCb767D9aDb469f7e';
 
   const tx = await factoryContract.createContracts(tokenSettings, poolTitle, payToken);
