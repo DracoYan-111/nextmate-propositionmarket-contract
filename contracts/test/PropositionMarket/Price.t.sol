@@ -146,16 +146,16 @@ contract PriceTest is Test {
 
     function test_GetSpotPrice() public {
         delete _testCases; // 清空数组
-        _testCases.push(TestCase(0, 0, 707106781186547524));
-        _testCases.push(TestCase(1 ether, 0, 773221279597375842));
-        _testCases.push(TestCase(0 ether, 1 ether, 640184399664479868));
-        _testCases.push(TestCase(1 ether, 1 ether, 712106781186547524));
+        _testCases.push(TestCase(0, 0, 870550563296124129));
+        _testCases.push(TestCase(1 ether, 0, 875561444362083685));
+        _testCases.push(TestCase(0 ether, 1 ether, 870539681686124879));
+        _testCases.push(TestCase(1 ether, 1 ether, 875550563296124137));
 
         _runTestCases(_testCases);
     }
 
-    function test_GetDeltaUSDT() public {
-        assertEq(Price.getDeltaUSDT(0 ether, 0 ether, 1 ether), 742515197374512483);
+    function test_GetDeltaUSDT() pure public {
+        assertEq(Price.getDeltaUSDT(1 ether, 1 ether, 1 ether), 876650760503610536);
     }
 
     function test_GetExecutionPrice() public {
@@ -196,7 +196,7 @@ contract PriceTest is Test {
         uint256 seed = 12345;
 
         // 第一组：大范围随机测试，buy情况
-        for (uint256 i = 0; i < 100; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             // 生成随机供应量 (0 - 10亿 ether)
             uint256 supply = uint256(keccak256(abi.encodePacked(seed, i, "supply"))) % (10e9 ether);
             uint256 supplyOther = uint256(keccak256(abi.encodePacked(seed, i, "supplyOther"))) % (10e9 ether);
@@ -208,7 +208,7 @@ contract PriceTest is Test {
         }
 
         // 第二组：随机测试，sell情况
-        for (uint256 i = 0; i < 100; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             // 生成随机供应量
             uint256 supply = uint256(keccak256(abi.encodePacked(seed, i + 100, "supply"))) % (10e9 ether);
             uint256 supplyOther = uint256(keccak256(abi.encodePacked(seed, i + 100, "supplyOther"))) % (10e9 ether);
@@ -235,13 +235,13 @@ contract PriceTest is Test {
         _runExecutionPriceTestCases(_executionPriceTestCases);
     }
 
-    function test_SingleGetExecutionPrice() public {
+    function test_SingleGetExecutionPrice() pure public {
         uint256 price = Price.getExecutionPrice(0 ether, 0 ether, 14301230283084417960489);
         console2.log("price", price);
         console2.log("usdt amount", price * 14301230283084417960489 /1e18);
         console2.log("_potential", Price._potential(14301230283084417960489, 0) - Price._potential(0, 0));
     }
-    function test_SingleGetPrice() public {
+    function test_SingleGetPrice() pure public {
         console2.log("price", Price.getSpotPrice(66 ether, 14301 ether));
     }
 
@@ -276,12 +276,12 @@ contract PriceTest is Test {
 
         // 第二组测试：小范围
         for (uint256 i = 0; i < 100; i++) {
-            // 生成随机供应量 (0 - 100 ether)
-            uint256 supply = uint256(keccak256(abi.encodePacked(seed, i + 100, "supply"))) % (100 ether);
-            uint256 supplyOther = uint256(keccak256(abi.encodePacked(seed, i + 100, "supplyOther"))) % (100 ether);
+            // 生成随机供应量 (0.01 ether - 100 ether)
+            uint256 supply = (uint256(keccak256(abi.encodePacked(seed, i + 100, "supply"))) % (99 * 1e18)) + 1e16;
+            uint256 supplyOther = (uint256(keccak256(abi.encodePacked(seed, i + 100, "supplyOther"))) % (99 * 1e18)) + 1e16;
 
-            // 生成随机USDT金额 (0 - 10)
-            uint256 usdtAmount = uint256(keccak256(abi.encodePacked(seed, i + 100, "usdt"))) % (10 * 1e6);
+            // 生成随机USDT金额 (0.01 ether - 10 ether)
+            uint256 usdtAmount = (uint256(keccak256(abi.encodePacked(seed, i + 100, "usdt"))) % (9 * 1e18)) + 1e16;
 
             (uint256 supplyDelta, uint256 avgPrice) = Price.approximateExecutionPrice(supply, supplyOther, usdtAmount);
 

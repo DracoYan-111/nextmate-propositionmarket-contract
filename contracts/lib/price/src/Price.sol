@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {FixedPointMathLib} from "../../solady/src/utils/FixedPointMathLib.sol";
-import {SafeCastLib} from "../../solady/src/utils/SafeCastLib.sol";
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
+import {SafeCastLib} from "solady/src/utils/SafeCastLib.sol";
+import {console2} from "forge-std/console2.sol";
 
 /**
  * @title Price Library
- * @notice Bonding‑curve pricing **updated为 α = 2**，计算更简洁。
+ * @notice Bonding‑curve pricing 
  *
  * ### 公式摘要
- * * **A** = (s₁+v)^2 + (s₂+v)^2
+ * * **A** = (s₁+v)^α + (s₂+v)^α
  * * **Spot Price**
- *   * y₁ = (s₁ + v) / √A  +  k·√s₁
- *   * y₂ = (s₂ + v) / √A  +  k·√s₂
- * * **Potential**   F(s₁,s₂) = √A + (2/3)·k·(s₁^{1.5}+s₂^{1.5})
+ *   * y₁ = (s₁ + v)^{α−1} · A^{1/α − 1}  +  k·√s₁
+ *   * y₂ = (s₂ + v)^{α−1} · A^{1/α − 1}  +  k·√s₂
+ * * **Potential**   F(s₁,s₂) = A^{1/α} + (2/3)·k·(s₁^{1.5}+s₂^{1.5})
  * * **执行均价**  Pₑₓₑc = (F(new) − F(old)) / Δs
  *
- * 所有数值仍采用 18‑decimals WAD。
+ * 所有数值采用 18‑decimals **WAD**。
  */
 library Price {
     using FixedPointMathLib for *;
@@ -25,12 +26,16 @@ library Price {
 
     /*────────────────────── CONSTANTS ──────────────────────*/
 
-    uint256 public constant ALPHA = 2 ether; // α = 2
-    uint256 public constant V = 5 ether; // v = 5
-    uint256 public constant K = 0.005 ether; // k = 0.005
+    uint256 public constant ALPHA = 1.25 ether;            // α = 1.25 (18‑dec)
+    uint256 public constant ONE_OVER_ALPHA = 0.8 ether;     // 1 / α
+    uint256  public constant ALPHA_MINUS_ONE = 0.25 ether;   // α − 1
+    int256  public constant ONE_OVER_ALPHA_MINUS_ONE = -0.2 ether; // 1/α − 1
 
-    /// @notice Binary‑search控制参数
-    uint256 public constant DEFAULT_MAX_ITERATIONS = 30;
+    uint256 public constant V     = 10000 ether;            // v  = 10000
+    uint256 public constant K     = 0.005 ether;           // k  = 0.005
+
+    /// @notice Binary‑search 控制参数
+    uint256 public constant DEFAULT_MAX_ITERATIONS        = 30;
     uint256 public constant DEFAULT_APPROXIMATION_PRECISION = 1e3;
 
     /*────────────────────── CUSTOM ERRORS ───────────────────*/
@@ -46,12 +51,13 @@ library Price {
         uint256 s1p = s1 + V;
         uint256 s2p = s2 + V;
 
-        // (s+v)^2  ⇒  (s+v)·(s+v)
-        uint256 s1Alpha = s1p.mulWad(s1p);
-        uint256 s2Alpha = s2p.mulWad(s2p);
+        // (s+v)^α
+        uint256 s1Alpha = FixedPointMathLib.powWad(s1p.toInt256(), ALPHA.toInt256()).toUint256();
+        uint256 s2Alpha = FixedPointMathLib.powWad(s2p.toInt256(), ALPHA.toInt256()).toUint256();
         uint256 A = s1Alpha + s2Alpha;
 
-        uint256 first = A.sqrtWad(); // √A
+        // A^{1/α}
+        uint256 first = FixedPointMathLib.powWad(A.toInt256(), ONE_OVER_ALPHA.toInt256()).toUint256();
 
         // (2/3)·k·(s^{1.5})
         uint256 s1_15 = s1.mulWad(s1.sqrtWad());
@@ -67,12 +73,19 @@ library Price {
         uint256 s1p = supply + V;
         uint256 s2p = supplyOther + V;
 
-        uint256 s1Alpha = s1p.mulWad(s1p);
-        uint256 s2Alpha = s2p.mulWad(s2p);
-        uint256 denom = (s1Alpha + s2Alpha).sqrtWad(); // √A
+        // (s+v)^{α−1}
+        uint256 s1Factor = FixedPointMathLib.powWad(s1p.toInt256(), ALPHA_MINUS_ONE.toInt256()).toUint256();
 
-        uint256 firstTerm = s1p.divWad(denom); // (s₁+v)/√A
-        uint256 sqrtTerm = K.mulWad(supply.sqrtWad());
+        // A = (s₁+v)^α + (s₂+v)^α
+        uint256 s1Alpha = FixedPointMathLib.powWad(s1p.toInt256(), ALPHA.toInt256()).toUint256();
+        uint256 s2Alpha = FixedPointMathLib.powWad(s2p.toInt256(), ALPHA.toInt256()).toUint256();
+        uint256 A = s1Alpha + s2Alpha;
+
+        // A^{1/α − 1}
+        uint256 common = FixedPointMathLib.powWad(A.toInt256(), ONE_OVER_ALPHA_MINUS_ONE).toUint256();
+
+        uint256 firstTerm = s1Factor.mulWad(common);
+        uint256 sqrtTerm  = K.mulWad(supply.sqrtWad());
 
         return firstTerm + sqrtTerm;
     }
@@ -124,6 +137,13 @@ library Price {
             if (totalValue < usdtAmount) lowerBound = mid;
             else upperBound = mid;
             iterations++;
+            if (iterations >= maxIteration) {
+                console2.log("iterations", iterations);
+                console2.log("lowerBound", lowerBound);
+                console2.log("upperBound", upperBound);
+                console2.log("price", price);
+                console2.log("totalValue", totalValue);
+            }
         }
         revert ApproximationFailed(supply, supplyOther, usdtAmount);
     }
