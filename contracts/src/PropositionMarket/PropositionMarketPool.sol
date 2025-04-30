@@ -112,7 +112,7 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
             int256(tokenAmount),
             tokenPrice
         );
-        emit Swap(msg.sender, usdtNetAmount, tokenAmount, address(getPayTokenAddress()), address(token));
+        // emit Swap(msg.sender, usdtNetAmount, tokenAmount, address(getPayTokenAddress()), address(token));
     }
 
     function sell(
@@ -151,13 +151,13 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
             -int256(tokenAmount),
             tokenPrice
         );
-        emit Swap(
-            msg.sender,
-            usdtAmount.rawSub(platformFee),
-            tokenAmount,
-            address(getPayTokenAddress()),
-            address(token)
-        );
+        // emit Swap(
+        //     msg.sender,
+        //     usdtAmount.rawSub(platformFee),
+        //     tokenAmount,
+        //     address(getPayTokenAddress()),
+        //     address(token)
+        // );
     }
 
     function collectPlatformFee(address receiver) external onlyFactory {
