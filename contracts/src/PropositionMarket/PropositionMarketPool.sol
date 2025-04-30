@@ -75,9 +75,13 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
             usdtNetAmount > usdtProvided ||
             (usdtProvided.rawSub(usdtNetAmount) > (usdtProvided / Price.DEFAULT_APPROXIMATION_PRECISION))
         ) {
-            // Recalculate token amount and execution price by approximation
-            (tokenAmount, tokenPrice) = Price.approximateExecutionPrice(tokenSupply, supplyOther, usdtAmount);
-
+            // Recalculate token amount and execution price by approximation. Need to exclude platform fee.
+            (tokenAmount, tokenPrice) = Price.approximateExecutionPrice(
+                tokenSupply,
+                supplyOther,
+                usdtProvided.mulWad(1 ether.rawSub(getPlatformFee()))
+            );
+            
             // check slippage
             if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
 
@@ -89,7 +93,8 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
         // calculate platform fee
         totalPlatformFee += usdtNetAmount.rawSub(usdtAmount);
 
-        // transfer usdt from sender
+        // transfer usdt from sender and check if it's enough
+        if (usdtNetAmount > usdtProvided) revert PaymentFailed();
         if (!getPayTokenAddress().transferFrom(msg.sender, address(this), usdtNetAmount)) revert PaymentFailed();
 
         // update tvl
