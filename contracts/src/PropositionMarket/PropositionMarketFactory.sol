@@ -149,7 +149,7 @@ contract PropositionMarketFactory is
         TokenSettings[] memory tokenSettings,
         string calldata poolTitle,
         address payToken
-    ) external returns (address pool) {
+    ) external onlyRole(CREATOR_ROLE) returns (address pool) {
         PropositionMarketFactoryStorage storage $ = _getPropositionMarketFactoryStorage();
 
         address[] memory addressList = new address[](tokenSettings.length + 3);

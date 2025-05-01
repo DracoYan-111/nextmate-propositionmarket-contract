@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
-import {SafeCastLib} from "solady/src/utils/SafeCastLib.sol";
-import {console2} from "forge-std/console2.sol";
+import {FixedPointMathLib} from "../../solady/src/utils/FixedPointMathLib.sol";
+import {SafeCastLib} from "../../solady/src/utils/SafeCastLib.sol";
 
 /**
  * @title Price Library
- * @notice Bonding‑curve pricing 
+ * @notice Bonding‑curve pricing
  *
  * ### 公式摘要
  * * **A** = (s₁+v)^α + (s₂+v)^α
@@ -26,16 +25,16 @@ library Price {
 
     /*────────────────────── CONSTANTS ──────────────────────*/
 
-    uint256 public constant ALPHA = 1.25 ether;            // α = 1.25 (18‑dec)
-    uint256 public constant ONE_OVER_ALPHA = 0.8 ether;     // 1 / α
-    uint256  public constant ALPHA_MINUS_ONE = 0.25 ether;   // α − 1
-    int256  public constant ONE_OVER_ALPHA_MINUS_ONE = -0.2 ether; // 1/α − 1
+    uint256 public constant ALPHA = 1.25 ether; // α = 1.25 (18‑dec)
+    uint256 public constant ONE_OVER_ALPHA = 0.8 ether; // 1 / α
+    uint256 public constant ALPHA_MINUS_ONE = 0.25 ether; // α − 1
+    int256 public constant ONE_OVER_ALPHA_MINUS_ONE = -0.2 ether; // 1/α − 1
 
-    uint256 public constant V     = 10000 ether;            // v  = 10000
-    uint256 public constant K     = 0.005 ether;           // k  = 0.005
+    uint256 public constant V = 10000 ether; // v  = 10000
+    uint256 public constant K = 0.005 ether; // k  = 0.005
 
     /// @notice Binary‑search 控制参数
-    uint256 public constant DEFAULT_MAX_ITERATIONS        = 30;
+    uint256 public constant DEFAULT_MAX_ITERATIONS = 30;
     uint256 public constant DEFAULT_APPROXIMATION_PRECISION = 1e3;
 
     /*────────────────────── CUSTOM ERRORS ───────────────────*/
@@ -85,7 +84,7 @@ library Price {
         uint256 common = FixedPointMathLib.powWad(A.toInt256(), ONE_OVER_ALPHA_MINUS_ONE).toUint256();
 
         uint256 firstTerm = s1Factor.mulWad(common);
-        uint256 sqrtTerm  = K.mulWad(supply.sqrtWad());
+        uint256 sqrtTerm = K.mulWad(supply.sqrtWad());
 
         return firstTerm + sqrtTerm;
     }
@@ -137,13 +136,6 @@ library Price {
             if (totalValue < usdtAmount) lowerBound = mid;
             else upperBound = mid;
             iterations++;
-            if (iterations >= maxIteration) {
-                console2.log("iterations", iterations);
-                console2.log("lowerBound", lowerBound);
-                console2.log("upperBound", upperBound);
-                console2.log("price", price);
-                console2.log("totalValue", totalValue);
-            }
         }
         revert ApproximationFailed(supply, supplyOther, usdtAmount);
     }

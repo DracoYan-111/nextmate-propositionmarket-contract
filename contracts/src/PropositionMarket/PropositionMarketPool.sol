@@ -81,7 +81,7 @@ contract PropositionMarketPool is IPropositionMarketPool_Def, ReentrancyGuard, I
                 supplyOther,
                 usdtProvided.mulWad(1 ether.rawSub(getPlatformFee()))
             );
-            
+
             // check slippage
             if (tokenAmount < minTokenReceived) revert SlippageFailed(tokenAmount, minTokenReceived);
 
