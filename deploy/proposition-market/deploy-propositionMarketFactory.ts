@@ -31,7 +31,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     args: [],
     log: true,
     libraries: {
-      Price: '0x1c5ff8f35bce2dbb984c19f644d227facd820c6e',
+      Price: '0x7C13A2a4c0C2E3976B9b29150d05e27CcC494798',
     },
   });
 
